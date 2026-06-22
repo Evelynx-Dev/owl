@@ -450,6 +450,55 @@ fn has_project: () :bool {
     return fs_exists("owl.toml")
 }
 
+fn config_get: (key :str fallback :str) :str {
+    set parts = strings::split(key ".")
+    if len(parts) < 2 { return fallback }
+    set section = lists::get(parts 0)
+    set field = lists::get(parts 1)
+    set val = toml_get("owl.toml" section field)
+    if val != "" { return val }
+    return fallback
+}
+
+fn resolve_path: (key :str fallback :str) :str {
+    if !has_project() { return fallback }
+    set val = config_get(key "")
+    if val != "" { return val }
+    return fallback
+}
+
+fn compiler_cmd: () :str {
+    if has_project() {
+        set cmd = toml_get("owl.toml" "build" "compiler")
+        if cmd != "" { return cmd }
+    }
+    return "mire"
+}
+
+fn project_name: () :str {
+    if has_project() {
+        set n = toml_get("owl.toml" "project" "name")
+        if n != "" { return n }
+    }
+    return "<unknown>"
+}
+
+fn project_version: () :str {
+    if has_project() {
+        set v = toml_get("owl.toml" "project" "version")
+        if v != "" { return v }
+    }
+    return "<unknown>"
+}
+
+fn project_description: () :str {
+    if has_project() {
+        set d = toml_get("owl.toml" "project" "description")
+        if d != "" { return d }
+    }
+    return ""
+}
+
 fn owl_home_dir: () :str {
     set h = env_get("HOME")
     if h != "" { return h }
@@ -764,15 +813,17 @@ fn check_print_warning_summary: (file :str out :str strict :str) :str {
 }
 
 fn compile_pipeline: (args :vec[str] is_run :bool) {
-    set default_file = "code/main.mire" :str mut
-    if fs_exists("owl.toml") {
+    set default_entry = "code/main.mire" :str mut
+    if has_project() {
         set entry = toml_get("owl.toml" "project" "entry")
-        if entry != "" { set default_file = entry }
+        if entry != "" { set default_entry = entry }
     }
-    set file = default_file :str mut
-    set profile = "debug" :str mut
-    set opt = "0" :str mut
-    set pass = ""
+    set file = default_entry :str mut
+    set profile = toml_get("owl.toml" "build" "profile") :str mut
+    if profile == "" { set profile = "debug" }
+    set opt = toml_get("owl.toml" "build" "opt-level") :str mut
+    if opt == "" { set opt = "0" }
+    set mire = compiler_cmd()
     set n = rt_vec_len(args)
     set i = 2 :i64 mut
     while i < n {
@@ -792,7 +843,7 @@ fn compile_pipeline: (args :vec[str] is_run :bool) {
                     if strings::startswith(a "-O") && len(a) > 2 {
                         set opt = strings::replace(a "-O" "")
                     } else {
-                        if !strings::startswith(a "-") && file == default_file {
+                        if !strings::startswith(a "-") && file == default_entry {
                             set file = a
                         }
                     }
@@ -807,7 +858,7 @@ fn compile_pipeline: (args :vec[str] is_run :bool) {
         use warn_line("OWL0001" "no project found; using local .cache and bin/")
     }
 
-    if file == "" { set file = default_file }
+    if file == "" { set file = default_entry }
     if !fs_exists(file) {
         use error_line("OWL0002" "input not found: " + file)
         return
@@ -824,44 +875,43 @@ fn compile_pipeline: (args :vec[str] is_run :bool) {
     if is_run {
         set bin_path = "bin/main"
         if fs_exists(bin_path) {
-            set fast_cmd = bin_path :str mut
-            if pass != "" { set fast_cmd = fast_cmd + " " + pass }
-            use dasu(proc_run(fast_cmd))
+            use dasu(proc_run(bin_path))
             return
         }
     }
 
-    set cmd = "mire" :str mut
+    set cmd = mire :str mut
     if is_run { set cmd = cmd + " run " + file } else { set cmd = cmd + " build " + file }
     if profile == "release" { set cmd = cmd + " --release" } else { set cmd = cmd + " --debug" }
     set cmd = cmd + " -O " + opt
-    if is_run && pass != "" { set cmd = cmd + " -- " + pass }
     set out = proc_run(cmd)
     use dasu(out)
 }
 
 fn cmd_new: (name :str) {
-    set n_exists = name
-    if fs_exists(n_exists) {
+    set n0 = name
+    if fs_exists(n0) {
         use dasu("Error: directory already exists")
         return
     }
-
-    set n1 = name
-    set n2 = name
-    set n3 = name
-    set n4 = name
-    set n5 = name
-    set n6 = name
-    set n7 = name
-    use mkdir_p(n1 + "/code")
+    set dirs = strings::split(name "/")
+    set base = lists::get(dirs len(dirs) - 1)
+    set n = base
+    use mkdir_p(n0 + "/code")
+    set n2 = n0
     use mkdir_p(n2 + "/bin")
+    set n3 = n0
     use mkdir_p(n3 + "/tests")
+    set n4 = n0
     use mkdir_p(n4 + "/docs")
-    use fs_write(n5 + "/owl.toml", "[owl]\nversion = \"1.0.0\"\n\n[project]\nname = \"" + name + "\"\nversion = \"0.1.0\"\nentry = \"code/main.mire\"\ndescription = \"\"\n\n[dependencies]\n\n[compiler]\ncmd = \"mire\"\n\n[build]\ndefault_profile = \"debug\"\ndefault_opt_level = \"0\"\n")
-    use proc_run("printf 'pub fn main: () \\173\\n    use dasu(\"Welcome\")\\n\\175\\n' > " + n6 + "/code/main.mire")
-    use proc_run("printf 'pub fn main: () \\173\\n    use dasu(\"ok\")\\n\\175\\n' > " + n7 + "/tests/smoke.mire")
-    use dasu("Project created: " + name)
+    set n5 = n0
+    use fs_write(n5 + "/owl.toml" "[project]\nname = \"" + n + "\"\nversion = \"0.1.0\"\ndescription = \"\"\nentry = \"code/main.mire\"\n\n[build]\ncompiler = \"mire\"\nprofile = \"debug\"\nopt-level = 0\n\n[paths]\nsources = \"code\"\ntests = \"tests\"\noutput = \"bin\"\ncache = \"bin/.cache\"\n\n[dependencies]\n")
+    set n6 = n0
+    use fs_write(n6 + "/code/main.mire" "load kioto\n\n#!cfg::test\npub fn main: () {\n    use dasu(\"ok\")\n}\n")
+    set n7 = n0
+    use fs_write(n7 + "/tests/smoke.mire" "load kioto\n\n#!cfg::test\npub fn test_smoke: () -> bool {\n    return true\n}\n")
+    set n8 = n0
+    use dasu("Project created: " + n8)
 }
 
 fn upsert_manifest_dependency: (file :str name :str entry :str) {
@@ -1168,44 +1218,52 @@ fn cmd_test: (args :vec[str]) {
 
 fn cmd_info: () {
     if has_project() {
-        set p_name = toml_get("owl.toml" "project" "name")
-        set p_name_display = p_name :str mut
-        if p_name_display == "" { set p_name_display = "<none>" }
-        set p_version = toml_get("owl.toml" "project" "version")
-        set p_version_display = p_version :str mut
-        if p_version_display == "" { set p_version_display = "<none>" }
+        set p_name = project_name()
+        set p_version = project_version()
         set p_entry = toml_get("owl.toml" "project" "entry")
         set p_entry_display = p_entry :str mut
         if p_entry_display == "" { set p_entry_display = "code/main.mire" }
-        use dasu("info -- " + p_name_display + " v" + p_version_display)
+        set p_desc = project_description()
+        use dasu("info -- " + p_name + " v" + p_version)
         use dasu("  entry . " + p_entry_display)
+        if p_desc != "" {
+            use dasu("  desc  . " + p_desc)
+        }
         set deps_str = toml_keys("owl.toml" "dependencies")
         if deps_str != "" {
             use dasu("  deps  . " + deps_str)
         }
-        if fs_exists("tests") {
-            set data = find_mire_files("tests")
+        set test_path = resolve_path("paths.tests" "tests")
+        if fs_exists(test_path) {
+            set data = find_mire_files(test_path)
             if data != "" {
                 set test_lines = strings::split(data "\n")
                 set tc = len(test_lines)
                 use dasu("  tests . " + str(tc) + " test(s)")
             }
         }
+        set output_dir = resolve_path("paths.output" "bin")
+        set cache_dir = resolve_path("paths.cache" "bin/.cache")
+        use dasu("  out   . " + output_dir + "/")
+        use dasu("  cache . " + cache_dir + "/")
     } else {
         use dasu("info -- <no project>")
     }
 
     if has_project() {
         set c_target = strings::trim(proc_run("uname -m"))
-        set b_profile = toml_get("owl.toml" "build" "default_profile")
+        set b_profile = toml_get("owl.toml" "build" "profile")
         set b_profile_display = b_profile :str mut
         if b_profile_display == "" { set b_profile_display = "debug" }
-        set b_opt = toml_get("owl.toml" "build" "default_opt_level")
+        set b_opt = toml_get("owl.toml" "build" "opt-level")
         set b_opt_display = b_opt :str mut
         if b_opt_display == "" { set b_opt_display = "0" }
+        set b_compiler = toml_get("owl.toml" "build" "compiler") :str mut
+        if b_compiler == "" { set b_compiler = "mire" }
         use dasu("  engine . " + compiler_version())
         use dasu("  target . " + c_target)
         use dasu("  profile. " + b_profile_display + " (opt-level: " + b_opt_display + ")")
+        use dasu("  using  . " + b_compiler)
     }
 
     set all_pkgs = registry_list()
@@ -1643,6 +1701,11 @@ pub fn main: () {
             if rest == "i" {
                 set a_si = a15
                 cmd_info_pkg(a_si)
+                return
+            }
+            if rest == "yu" || rest == "y" || rest == "u" || rest == "ya" {
+                set a_syu = a15
+                cmd_sync(a_syu)
                 return
             }
             set a_s = a15
