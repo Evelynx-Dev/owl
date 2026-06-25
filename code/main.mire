@@ -891,17 +891,12 @@ fn compile_pipeline: (args :vec[str] is_run :bool) {
         return
     }
 
-    # Precompute binary stem before dirs are consumed
-    set stem = file :str mut
-    if strings::endswith(stem ".mire") {
-        set stem = strings::replace(stem ".mire" "")
-    }
-    set parts = strings::split(stem "/")
-    set exe_name = rt_vec_get_str(parts rt_vec_len(parts) - 1)
-    set exe_path = "./" + out_dir + "/" + profile + "/" + exe_name :str mut
-
     use mkdir_p(cache_dir)
     use mkdir_p(out_dir)
+
+    # Re-read out_dir from config since it was consumed by mkdir_p
+    set out_dir2 = toml_get("owl.toml" "paths" "output") :str mut
+    if out_dir2 == "" { set out_dir2 = "bin" }
 
     set build_cmd = mire :str mut
     set build_cmd = build_cmd + " build " + file
@@ -915,13 +910,23 @@ fn compile_pipeline: (args :vec[str] is_run :bool) {
         return
     }
 
-    # is_run: build first, then spawn binary without capturing stdout
+    # is_run: build first, then spawn + wait binary
     set build_out = proc_run(build_cmd)
     use dasu(build_out)
 
+    # Compute binary path
+    set name = entry :str mut
+    if strings::endswith(name ".mire") {
+        set name = strings::replace(name ".mire" "")
+    }
+    set parts = strings::split(name "/")
+    set name = rt_vec_get_str(parts rt_vec_len(parts) - 1)
+    set bin = "./" + out_dir2 + "/" + profile + "/" + name :str mut
+
     use dasu("")
-    use dasu("  running ...")
-    proc::spawn_shell(exe_path)
+    proc::spawn_shell("echo \"  running " + bin + " ...\"")
+    set pid = proc::spawn_shell(bin)
+    proc::wait(pid)
 }
 
 fn cmd_new: (name :str) {
