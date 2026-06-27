@@ -117,7 +117,7 @@ fn config_required: (section :str key :str) :str {
         if val == "" {
             use error_line("OWL0003" "missing [" + section + "]." + key + " in owl.toml")
             use dasu("")
-            use dasu("  Fix the file manually or run:  owl new <name>  to create a new project")
+            use dasu("  Run 'owl checkup --fix' to regenerate owl.toml with defaults")
             proc_exit(1)
         }
         return val
@@ -260,6 +260,67 @@ fn cmd_new: (name :str) {
     use dasu("Project created: " + n8)
 }
 
+fn regenerate_owl_toml: () {
+    if !has_project() {
+        use dasu("No owl.toml found in the current directory")
+        return
+    }
+    set name = toml_get("owl.toml" "project" "name") :str mut
+    if name == "" { set name = "myproject" }
+    use fs_write("owl.toml" "[project]\nname = \"" + name + "\"\nversion = \"0.1.0\"\ndescription = \"\"\nentry = \"code/main.mire\"\n\n[build]\ncompiler = \"mire\"\nprofile = \"debug\"\nopt-level = 0\n\n[paths]\nsources = \"code\"\ntests = \"tests\"\noutput = \"bin\"\ncache = \"bin/.cache\"\n\n[dependencies]\n")
+    use dasu("owl.toml regenerated with defaults (project name preserved)")
+}
+
+fn cmd_checkup: (args :vec[str]) {
+    set do_fix = false :bool mut
+    set n = rt_vec_len(args)
+    set i = 2 :i64 mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if a == "--fix" { set do_fix = true }
+        set i += 1
+    }
+
+    if !has_project() {
+        use dasu("No project found (no owl.toml)")
+        return
+    }
+
+    set ok = true :bool mut
+
+    set entry = toml_get("owl.toml" "project" "entry")
+    if entry == "" {
+        use error_line("OWL0003" "missing [project].entry")
+        set ok = false
+    }
+    set profile = toml_get("owl.toml" "build" "profile")
+    if profile == "" {
+        use error_line("OWL0003" "missing [build].profile")
+        set ok = false
+    }
+    set opt = toml_get("owl.toml" "build" "opt-level")
+    if opt == "" {
+        use error_line("OWL0003" "missing [build].opt-level")
+        set ok = false
+    }
+    set out_dir = toml_get("owl.toml" "paths" "output")
+    if out_dir == "" {
+        use error_line("OWL0003" "missing [paths].output")
+        set ok = false
+    }
+    set cache_dir = toml_get("owl.toml" "paths" "cache")
+    if cache_dir == "" {
+        use error_line("OWL0003" "missing [paths].cache")
+        set ok = false
+    }
+
+    if ok { use dasu("owl.toml is valid") }
+
+    if !ok && do_fix {
+        regenerate_owl_toml()
+    }
+}
+
 fn cmd_clean: (args :vec[str]) {
     set clean_bin = false :bool mut
     set clean_cache = false :bool mut
@@ -327,6 +388,8 @@ fn print_help: () {
     use dasu("Phase 1 - Project commands:")
     use dasu("  new    <Name>      create new project")
     use dasu("  clean  [--bin] [--cache] [--all]")
+    use dasu("  checkup            validate owl.toml and environment")
+    use dasu("  checkup --fix      regenerate owl.toml with defaults")
     use dasu("")
     use dasu("Global:")
     use dasu("  -V, --version     Show version")
@@ -358,6 +421,7 @@ pub fn main: () {
     set a2 = args
     set a3 = args
     set a4 = args
+    set a5 = args
     if cmd == "-B" || cmd == "build" {
         compile_pipeline(a1 false)
         return
@@ -372,6 +436,10 @@ pub fn main: () {
             return
         }
         cmd_new(lists::get(a3 2))
+        return
+    }
+    if cmd == "checkup" {
+        cmd_checkup(a5)
         return
     }
     if cmd == "-C" || cmd == "clean" {
