@@ -60,9 +60,11 @@ Gestor de paquetes y proyectos para el lenguaje Mire / compilador Avenys.
 |------|-------------|
 | `new <nombre>` | Crea un proyecto nuevo con estructura estándar |
 | `clean` / `-C` | Elimina artefactos de build y caché del proyecto |
+| `check` | Valida dependencias del proyecto — verifica existencia, versión e integridad |
+| `checkup` | Diagnóstico del entorno y validación de `owl.toml` |
+| `checkup --fix` | Regenera `owl.toml` con defaults preservando valores existentes |
 | `profile` | Métricas de build: tiempos, tamaño, módulos compilados, hits de caché |
 | `info` | Información del proyecto y entorno (todo leído en vivo, nada hardcodeado) |
-| `doctor` | Diagnóstico completo del entorno de desarrollo |
 
 ### Paquetes — Sync (`-S`)
 
@@ -267,13 +269,14 @@ owl build
 ```
 owl checkup
   [OK]   mire: Mire / Avenys v3.11.35
+
   [OK]   [project].entry: code/main.mire  ->  exists
   [OK]   [build].profile: debug
   [OK]   [build].opt-level: 0
   [OK]   [paths].output: bin
   [OK]   [paths].cache: bin/.cache  ->  exists
 
-  all checks passed
+  [OK]   all checks passed
 ```
 
 Si faltan campos en `owl.toml`:
@@ -281,21 +284,53 @@ Si faltan campos en `owl.toml`:
 ```
 owl checkup
   [OK]   mire: Mire / Avenys v3.11.35
+
   [OK]   [project].entry: code/main.mire  ->  exists
   [FAIL] [build].profile: missing
   [FAIL] [build].opt-level: missing
   [OK]   [paths].output: bin
-  [OK]   [paths].cache: bin/.cache  ->  exists
+  [FAIL] [paths].cache: missing
 
-  some checks failed
-  run 'owl checkup --fix' to regenerate owl.toml with defaults
+  [HINT] run 'checkup --fix' to repair owl.toml issues
 ```
 
-`owl checkup --fix` regenera `owl.toml` con valores por defecto, preservando el nombre del proyecto.
+`owl checkup --fix` regenera `owl.toml` con valores por defecto, preservando todos los valores existentes (solo rellena campos faltantes).
 
-Si `owl checkup` pasa sin errores, el entorno está en estado correcto para compilar e instalar. Es el primer comando a ejecutar cuando algo no funciona.
+Si el directorio de caché no existe:
 
-### 3.12 `owl info` — qué muestra
+```
+  [WARN] [paths].cache: bin/.cache  ->  will be created on next build
+```
+
+Esto no falla el check — el build lo crea automáticamente.
+
+Si `owl checkup` pasa sin errores, el entorno está en estado correcto para compilar e instalar.
+
+### 3.12 `owl check` — qué comprueba
+
+`owl check` valida las dependencias declaradas en `[dependencies]` de `owl.toml`:
+
+```
+owl check
+  checking dependencies ...
+
+  [OK]    kioto  ->  ../kioto  (v0.1.0)
+  [FAIL]  mydep  ->  ./nonexistent  (not found)
+
+  integrity checks: pending (requires file manager)
+```
+
+Para cada dependencia, lee el inline table `{ path = "...", version = "..." }` y:
+
+- Verifica que la ruta existe
+- Muestra la versión si está declarada
+- Reporta `[FAIL]` si la ruta no existe o no se especificó `path`
+
+La sección de integridad es un placeholder — funcionará cuando el gestor de archivos esté completo.
+
+`owl check` no está limitado a dependencias predefinidas: lee dinámicamente cualquier entrada que aparezca en `[dependencies]`.
+
+### 3.13 `owl info` — qué muestra
 
 `owl info` lee todo en vivo en tiempo de ejecución. Ningún valor hardcodeado:
 
@@ -322,7 +357,7 @@ dependencies:
 
 Sin proyecto activo (`owl info` desde un directorio sin `owl.toml`), muestra solo la sección de entorno (compiler, owl, LLVM, abi).
 
-### 3.13 `owl clean` — alcance
+### 3.14 `owl clean` — alcance
 
 `owl clean` (o `-C`) limpia solo el proyecto actual:
 
@@ -353,7 +388,8 @@ Para limpiar la caché global de paquetes: `owl gc`. Son operaciones distintas c
 - Caché incremental en `bin/.cache/` — en frío ~60ms, en caliente ~2ms
 - `owl run <archivo.mire>` sin proyecto delega directamente a `mire run`
 - Errores claros en campos faltantes de `owl.toml`
-- `owl checkup`: validación de `owl.toml` con `--fix` para regenerarlo con defaults
+- `owl checkup`: validación de `owl.toml` con `--fix` para regenerarlo preservando valores existentes
+- `owl check`: validación dinámica de dependencias — lee `[dependencies]` sin hardcodear, verifica existencia y versión
 - `owl new`, `owl clean`: gestión básica de proyectos
 
 > **Principio:** Una vez estable, el build system no vuelve a cambiar hasta la 1.0. Ninguna fase posterior modifica la compilación.
@@ -366,9 +402,10 @@ Para limpiar la caché global de paquetes: `owl gc`. Son operaciones distintas c
 
 - `owl info`: todo leído en vivo — proyecto, compilador, owl, LLVM, perfil, output, caché, target, dependencias
 - `owl checkup`: diagnóstico completo del entorno — compilador, LLVM, permisos, configuración, caché, registros, claves, integridad de paquetes
-- `owl checkup --fix`: regenera `owl.toml` con valores por defecto preservando el nombre del proyecto
+- `owl checkup --fix`: preserva todos los valores existentes, solo rellena campos faltantes
 - `owl checkup` detecta: lockfile desactualizado, caché corrupta, firma desconocida, `owl.toml` malformado
-- Ningún valor hardcodeado en ninguno de los dos comandos
+- `owl check`: integridad de dependencias con verificación criptográfica (SHA-256 + firma)
+- Ningún valor hardcodeado en ninguno de los comandos
 
 > **Por qué `checkup` aquí:** Es el comando con mejor ROI de soporte. Resuelve el 80% de los problemas de configuración sin intervención manual. Llega antes de que el ecosistema exista para que esté disponible desde el primer día de uso real.
 

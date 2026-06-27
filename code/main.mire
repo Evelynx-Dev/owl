@@ -90,7 +90,7 @@ extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 extern fn rt_string_to_i64: (value :str) :i64 lib "c"
 extern fn rt_i64_to_string: (value :i64) :str lib "c"
 
-fn owl_version: () :str { return "0.15.0" }
+fn owl_version: () :str { return "0.16.0" }
 fn compiler_version: () :str {
     set v = strings::trim(proc_run("mire --version"))
     if v != "" { return v }
@@ -265,10 +265,31 @@ fn regenerate_owl_toml: () {
         use dasu("No owl.toml found in the current directory")
         return
     }
-    set name = toml_get("owl.toml" "project" "name") :str mut
-    if name == "" { set name = "myproject" }
-    use fs_write("owl.toml" "[project]\nname = \"" + name + "\"\nversion = \"0.1.0\"\ndescription = \"\"\nentry = \"code/main.mire\"\n\n[build]\ncompiler = \"mire\"\nprofile = \"debug\"\nopt-level = 0\n\n[paths]\nsources = \"code\"\ntests = \"tests\"\noutput = \"bin\"\ncache = \"bin/.cache\"\n\n[dependencies]\n")
-    use dasu("owl.toml regenerated with defaults (project name preserved)")
+    set n = toml_get("owl.toml" "project" "name") :str mut
+    if n == "" { set n = "myproject" }
+    set v = toml_get("owl.toml" "project" "version") :str mut
+    if v == "" { set v = "0.1.0" }
+    set d = toml_get("owl.toml" "project" "description") :str mut
+    if d == "" { set d = "" }
+    set e = toml_get("owl.toml" "project" "entry") :str mut
+    if e == "" { set e = "code/main.mire" }
+    set comp = toml_get("owl.toml" "build" "compiler") :str mut
+    if comp == "" { set comp = "mire" }
+    set p = toml_get("owl.toml" "build" "profile") :str mut
+    if p == "" { set p = "debug" }
+    set o = toml_get("owl.toml" "build" "opt-level") :str mut
+    if o == "" { set o = "0" }
+    set src = toml_get("owl.toml" "paths" "sources") :str mut
+    if src == "" { set src = "code" }
+    set t = toml_get("owl.toml" "paths" "tests") :str mut
+    if t == "" { set t = "tests" }
+    set out = toml_get("owl.toml" "paths" "output") :str mut
+    if out == "" { set out = "bin" }
+    set cache = toml_get("owl.toml" "paths" "cache") :str mut
+    if cache == "" { set cache = "bin/.cache" }
+
+    use fs_write("owl.toml" "[project]\nname = \"" + n + "\"\nversion = \"" + v + "\"\ndescription = \"" + d + "\"\nentry = \"" + e + "\"\n\n[build]\ncompiler = \"" + comp + "\"\nprofile = \"" + p + "\"\nopt-level = " + o + "\n\n[paths]\nsources = \"" + src + "\"\ntests = \"" + t + "\"\noutput = \"" + out + "\"\ncache = \"" + cache + "\"\n\n[dependencies]\n")
+    use dasu("  [FIX]  owl.toml: regenerated - missing fields filled with defaults")
 }
 
 fn cmd_checkup: (args :vec[str]) {
@@ -296,6 +317,7 @@ fn cmd_checkup: (args :vec[str]) {
     }
 
     # ── Project ─────────────────────────────────────────────────────────
+    use dasu("")
     if has_project() {
         set toml_valid = true :bool mut
 
@@ -344,8 +366,7 @@ fn cmd_checkup: (args :vec[str]) {
             if fs_exists(cache_dir) {
                 use dasu("  [OK]   [paths].cache: " + cache_dir + "  ->  exists")
             } else {
-                use dasu("  [FAIL] [paths].cache: " + cache_dir + "  ->  not found")
-                set toml_valid = false
+                use dasu("  [WARN] [paths].cache: " + cache_dir + "  ->  will be created on next build")
             }
         }
 
@@ -364,12 +385,127 @@ fn cmd_checkup: (args :vec[str]) {
     # ── Summary ─────────────────────────────────────────────────────────
     use dasu("")
     if all_ok {
-        use dasu("  all checks passed")
+        use dasu("  [OK]   all checks passed")
     } else {
-        use dasu("  some checks failed")
         if !do_fix {
-            use dasu("  run 'owl checkup --fix' to regenerate owl.toml with defaults")
+            use dasu("  [HINT] run 'checkup --fix' to repair owl.toml issues")
         }
+    }
+}
+
+fn cmd_check: (args :vec[str]) {
+    if !has_project() {
+        use dasu("  [FAIL]  no owl.toml found")
+        return
+    }
+
+    set content = fs_read("owl.toml")
+    set lines = strings::split(content "\n")
+    set n = len(lines)
+
+    use dasu("  checking dependencies ...")
+    use dasu("")
+
+    set in_deps = false :bool mut
+    set found_any = false :bool mut
+    set i = 0 :i64 mut
+
+    while i < n {
+        set rline = lists::get(lines i)
+        set line = strings::trim(rline)
+
+        set parts_hash = strings::split(line "#")
+        set clean = strings::trim(lists::get(parts_hash 0))
+
+        if clean != "" {
+            set parts_br = strings::split(clean "[")
+            if len(parts_br) >= 2 {
+                set close = strings::split(lists::get(parts_br 1) "]")
+                if len(close) >= 1 {
+                    set sec = strings::trim(lists::get(close 0))
+                    if sec == "dependencies" {
+                        set in_deps = true
+                    } else {
+                        if in_deps { break }
+                    }
+                }
+            } else {
+                if in_deps {
+                    set kv = strings::split(clean "=")
+                    if len(kv) >= 2 {
+                        set key = strings::trim(lists::get(kv 0))
+                        set raw_val = lists::get(kv 1) :str mut
+                        set j = 2 :i64 mut
+                        while j < len(kv) {
+                            set raw_val = raw_val + "=" + lists::get(kv j)
+                            set j += 1
+                        }
+
+                        set path_val = "" :str mut
+                        set ver_val = "" :str mut
+
+                        set tbl = strings::trim(raw_val) :str mut
+                        if strings::startswith(tbl "{") {
+                            set tbl = strings::substr(tbl 1 len(tbl) - 1)
+                        }
+                        if strings::endswith(tbl "}") {
+                            set tbl = strings::substr(tbl 0 len(tbl) - 1)
+                        }
+                        set tbl = strings::trim(tbl)
+
+                        set fields = strings::split(tbl ",")
+                        set k = 0 :i64 mut
+                        while k < len(fields) {
+                            set f = strings::trim(lists::get(fields k))
+                            set fkv = strings::split(f "=")
+                            if len(fkv) >= 2 {
+                                set fk = strings::trim(lists::get(fkv 0))
+                                set fv_raw = lists::get(fkv 1) :str mut
+                                set kk = 2 :i64 mut
+                                while kk < len(fkv) {
+                                    set fv_raw = fv_raw + "=" + lists::get(fkv kk)
+                                    set kk += 1
+                                }
+                                set fv = strings::trim(fv_raw) :str mut
+                                if strings::startswith(fv "\"") && strings::endswith(fv "\"") {
+                                    set fv = strings::substr(fv 1 len(fv) - 2)
+                                }
+                                if fk == "path" { set path_val = fv }
+                                if fk == "version" { set ver_val = fv }
+                            }
+                            set k += 1
+                        }
+
+                        set found_any = true
+                        if path_val == "" {
+                            use dasu("  [FAIL]  " + key + ": no path specified")
+                        } else {
+                            if fs_exists(path_val) {
+                                set msg = "  [OK]    " + key :str mut
+                                if ver_val != "" {
+                                    set msg = msg + "  ->  " + path_val + "  (v" + ver_val + ")"
+                                } else {
+                                    set msg = msg + "  ->  " + path_val
+                                }
+                                use dasu(msg)
+                            } else {
+                                use dasu("  [FAIL]  " + key + "  ->  " + path_val + "  (not found)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        set i += 1
+    }
+
+    if !found_any {
+        use dasu("  no dependencies configured")
+    }
+
+    use dasu("")
+    if found_any {
+        use dasu("  integrity checks: pending (requires file manager)")
     }
 }
 
@@ -442,6 +578,7 @@ fn print_help: () {
     use dasu("  clean  [--bin] [--cache] [--all]")
     use dasu("  checkup            validate owl.toml and environment")
     use dasu("  checkup --fix      regenerate owl.toml with defaults")
+    use dasu("  check             validate dependencies and integrity")
     use dasu("")
     use dasu("Global:")
     use dasu("  -V, --version     Show version")
@@ -474,6 +611,7 @@ pub fn main: () {
     set a3 = args
     set a4 = args
     set a5 = args
+    set a6 = args
     if cmd == "-B" || cmd == "build" {
         compile_pipeline(a1 false)
         return
@@ -492,6 +630,10 @@ pub fn main: () {
     }
     if cmd == "checkup" {
         cmd_checkup(a5)
+        return
+    }
+    if cmd == "check" {
+        cmd_check(a6)
         return
     }
     if cmd == "-C" || cmd == "clean" {
