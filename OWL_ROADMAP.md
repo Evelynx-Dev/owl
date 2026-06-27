@@ -266,19 +266,29 @@ owl build
 
 ```
 owl checkup
-  ✓ owl v0.15.0
-  ✓ mire (Avenys) v0.15.0  →  /usr/bin/mire
-  ✓ LLVM 17.0.6
-  ✓ registries: 1 active (mire-registry, last sync: 2h ago)
-  ✓ ~/.owl/keys: 3 trusted keys
-  ✓ ~/.owl/lib: 12 packages, 0 integrity errors
-  ✓ network: reachable (raw.githubusercontent.com)
-  ✓ filesystem permissions: ~/.owl/ writable
+  [OK]   mire: Mire / Avenys v3.11.35
+  [OK]   [project].entry: code/main.mire  ->  exists
+  [OK]   [build].profile: debug
+  [OK]   [build].opt-level: 0
+  [OK]   [paths].output: bin
+  [OK]   [paths].cache: bin/.cache  ->  exists
 
-  project (./):
-  ✓ owl.toml: valid
-  ✓ owl.lock: in sync with owl.toml
-  ✗ bin/.cache: corrupted entries detected  →  run `owl clean` to fix
+  all checks passed
+```
+
+Si faltan campos en `owl.toml`:
+
+```
+owl checkup
+  [OK]   mire: Mire / Avenys v3.11.35
+  [OK]   [project].entry: code/main.mire  ->  exists
+  [FAIL] [build].profile: missing
+  [FAIL] [build].opt-level: missing
+  [OK]   [paths].output: bin
+  [OK]   [paths].cache: bin/.cache  ->  exists
+
+  some checks failed
+  run 'owl checkup --fix' to regenerate owl.toml with defaults
 ```
 
 `owl checkup --fix` regenera `owl.toml` con valores por defecto, preservando el nombre del proyecto.

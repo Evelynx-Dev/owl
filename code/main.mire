@@ -281,43 +281,95 @@ fn cmd_checkup: (args :vec[str]) {
         set i += 1
     }
 
-    if !has_project() {
-        use dasu("No project found (no owl.toml)")
-        return
+    set all_ok = true :bool mut
+
+    # ── Compiler ────────────────────────────────────────────────────────
+    set compiler_out = strings::trim(proc_run("mire --version 2>&1 || true"))
+    if compiler_out == "" {
+        use dasu("  [FAIL] mire: not found")
+        use dasu("         install mire (Avenys) to compile projects")
+        set all_ok = false
+    } else {
+        set lines = strings::split(compiler_out "\n")
+        set first = lists::get(lines 0)
+        use dasu("  [OK]   mire: " + first)
     }
 
-    set ok = true :bool mut
+    # ── Project ─────────────────────────────────────────────────────────
+    if has_project() {
+        set toml_valid = true :bool mut
 
-    set entry = toml_get("owl.toml" "project" "entry")
-    if entry == "" {
-        use error_line("OWL0003" "missing [project].entry")
-        set ok = false
-    }
-    set profile = toml_get("owl.toml" "build" "profile")
-    if profile == "" {
-        use error_line("OWL0003" "missing [build].profile")
-        set ok = false
-    }
-    set opt = toml_get("owl.toml" "build" "opt-level")
-    if opt == "" {
-        use error_line("OWL0003" "missing [build].opt-level")
-        set ok = false
-    }
-    set out_dir = toml_get("owl.toml" "paths" "output")
-    if out_dir == "" {
-        use error_line("OWL0003" "missing [paths].output")
-        set ok = false
-    }
-    set cache_dir = toml_get("owl.toml" "paths" "cache")
-    if cache_dir == "" {
-        use error_line("OWL0003" "missing [paths].cache")
-        set ok = false
+        set entry = toml_get("owl.toml" "project" "entry")
+        if entry == "" {
+            use dasu("  [FAIL] [project].entry: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(entry) {
+                use dasu("  [OK]   [project].entry: " + entry + "  ->  exists")
+            } else {
+                use dasu("  [FAIL] [project].entry: " + entry + "  ->  not found")
+                set toml_valid = false
+            }
+        }
+
+        set profile = toml_get("owl.toml" "build" "profile")
+        if profile == "" {
+            use dasu("  [FAIL] [build].profile: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [build].profile: " + profile)
+        }
+
+        set opt = toml_get("owl.toml" "build" "opt-level")
+        if opt == "" {
+            use dasu("  [FAIL] [build].opt-level: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [build].opt-level: " + opt)
+        }
+
+        set out_dir = toml_get("owl.toml" "paths" "output")
+        if out_dir == "" {
+            use dasu("  [FAIL] [paths].output: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [paths].output: " + out_dir)
+        }
+
+        set cache_dir = toml_get("owl.toml" "paths" "cache")
+        if cache_dir == "" {
+            use dasu("  [FAIL] [paths].cache: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(cache_dir) {
+                use dasu("  [OK]   [paths].cache: " + cache_dir + "  ->  exists")
+            } else {
+                use dasu("  [FAIL] [paths].cache: " + cache_dir + "  ->  not found")
+                set toml_valid = false
+            }
+        }
+
+        if !toml_valid {
+            set all_ok = false
+            if do_fix {
+                use dasu("")
+                regenerate_owl_toml()
+            }
+        }
+    } else {
+        use dasu("  [FAIL] project: no owl.toml found")
+        set all_ok = false
     }
 
-    if ok { use dasu("owl.toml is valid") }
-
-    if !ok && do_fix {
-        regenerate_owl_toml()
+    # ── Summary ─────────────────────────────────────────────────────────
+    use dasu("")
+    if all_ok {
+        use dasu("  all checks passed")
+    } else {
+        use dasu("  some checks failed")
+        if !do_fix {
+            use dasu("  run 'owl checkup --fix' to regenerate owl.toml with defaults")
+        }
     }
 }
 
