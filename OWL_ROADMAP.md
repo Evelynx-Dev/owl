@@ -60,11 +60,12 @@ Gestor de paquetes y proyectos para el lenguaje Mire / compilador Avenys.
 |------|-------------|
 | `new <nombre>` | Crea un proyecto nuevo con estructura estándar |
 | `clean` / `-C` | Elimina artefactos de build y caché del proyecto |
-| `check` | Valida dependencias del proyecto — verifica existencia, versión e integridad |
 | `checkup` | Diagnóstico del entorno y validación de `owl.toml` |
 | `checkup --fix` | Regenera `owl.toml` con defaults preservando valores existentes |
+| `check` | Valida dependencias del proyecto — verifica existencia, versión e integridad |
 | `profile` | Métricas de build: tiempos, tamaño, módulos compilados, hits de caché |
 | `info` | Información del proyecto y entorno (todo leído en vivo, nada hardcodeado) |
+| `doctor` | Diagnóstico completo del entorno de desarrollo |
 
 ### Paquetes — Sync (`-S`)
 
@@ -411,8 +412,7 @@ Para limpiar la caché global de paquetes: `owl gc`. Son operaciones distintas c
 - Caché incremental en `bin/.cache/` — en frío ~60ms, en caliente ~2ms
 - `owl run <archivo.mire>` sin proyecto delega directamente a `mire run`
 - Errores claros en campos faltantes de `owl.toml`
-- `owl checkup`: validación de `owl.toml` con `--fix` para regenerarlo preservando valores existentes
-- `owl check`: validación dinámica de dependencias — lee `[dependencies]` sin hardcodear, verifica existencia y versión
+- `owl checkup`: validación de `owl.toml` con `--fix` para regenerarlo con defaults
 - `owl new`, `owl clean`: gestión básica de proyectos
 
 > **Principio:** Una vez estable, el build system no vuelve a cambiar hasta la 1.0. Ninguna fase posterior modifica la compilación.
@@ -425,10 +425,9 @@ Para limpiar la caché global de paquetes: `owl gc`. Son operaciones distintas c
 
 - `owl info`: todo leído en vivo — proyecto, compilador, owl, LLVM, perfil, output, caché, target, dependencias
 - `owl checkup`: diagnóstico completo del entorno — compilador, LLVM, permisos, configuración, caché, registros, claves, integridad de paquetes
-- `owl checkup --fix`: preserva todos los valores existentes, solo rellena campos faltantes
+- `owl checkup --fix`: regenera `owl.toml` con valores por defecto preservando el nombre del proyecto
 - `owl checkup` detecta: lockfile desactualizado, caché corrupta, firma desconocida, `owl.toml` malformado
-- `owl check`: integridad de dependencias con verificación criptográfica (SHA-256 + firma)
-- Ningún valor hardcodeado en ninguno de los comandos
+- Ningún valor hardcodeado en ninguno de los dos comandos
 
 > **Por qué `checkup` aquí:** Es el comando con mejor ROI de soporte. Resuelve el 80% de los problemas de configuración sin intervención manual. Llega antes de que el ecosistema exista para que esté disponible desde el primer día de uso real.
 

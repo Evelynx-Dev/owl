@@ -16,40 +16,23 @@ owl run
 
 ## Commands
 
-### Build (pacman-style flags available)
+### Build
 
 | Short | Command        | Description |
 |-------|---------------|-------------|
 | `-B`  | `build`       | Compile project to binary |
 |       | `run`         | Compile and execute |
-| `-K`  | `check`       | Static analysis with warnings |
-| `-T`  | `test`        | Run test suite |
-| `-D`  | `debug`       | Debug build with IR emission |
+|       | `check`       | Validate dependencies (path, version, integrity) |
+|       | `info`        | Project and environment information (live, no hardcoded values) |
 
 ### Project
 
 | Short | Command        | Description |
 |-------|---------------|-------------|
 | `-N`  | `new <name>`  | Scaffold a new project |
-|       | `add <name>`  | Add dependency to owl.toml |
 | `-C`  | `clean`       | Remove build artifacts and cache |
 |       | `checkup`     | Validate all owl.toml fields and environment |
 |       | `checkup --fix` | Regenerate owl.toml with defaults preserving existing values |
-|       | `profile`     | Build/profile metrics |
-| `-Q`  | `info [pkg]`  | Project or package information |
-
-### Package (pacman-style)
-
-| Flag  | Action                     |
-|-------|----------------------------|
-| `-S`  | Sync package from registry |
-| `-Ss` | Search packages            |
-| `-Si` | Show package details       |
-| `-Syu`| Sync and upgrade all       |
-| `-R`  | Remove package             |
-| `-Rs` | Remove + delete installed  |
-| `-Qi` | Query installed package    |
-| `-Ql` | List installed files       |
 
 ### Global
 
@@ -58,13 +41,19 @@ owl run
 | `-V`  | Show version |
 | `-h`  | Show help    |
 
+## Planned (future releases)
+
+- `test` / `-T` — test runner
+- `-S`, `-R`, `-Q` — package management (`-S` sync, `-R` remove, `-Q` query)
+- `profile` — build metrics
+- Pacman-style short flags for `check` and `info`
+
 ## Build profiles
 
 ```bash
 owl build --release -O3          # Release mode, max optimization
 owl run -r -Os                   # Release, size optimization
-owl check --all --strict          # Full static analysis
-owl test --filter smoke           # Run matching tests only
+owl check                        # Validate dependencies
 ```
 
 ## Project structure
