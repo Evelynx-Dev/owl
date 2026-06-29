@@ -9,20 +9,17 @@
 - `json_quote(str)` helper: wraps a string in double quotes,
   replacing `json::quoted()` from kioto (see Known Issues below).
 
-### Known Issues (Mire / Kioto)
+### Known Issues (Mire / Kioto / libs)
 - `json::quoted()` from `kioto/ext/json` causes `free(): invalid pointer`
-  crash at runtime in all tested contexts. Use the custom `json_quote()`
-  helper instead.
-- Mire runtime bug: `\n` character in string concatenation inside loops
-  can trigger `free(): invalid pointer`. Avoid comparing/concatenating
-  substrings containing literal newlines in loop bodies.
-- `load kioto::json` on a separate line after `load kioto` produces
-  a parser syntax error (blank line confuses the parser). The json module
-  is already loaded through `kioto`'s own `mod.mire`.
-- Compiler error E0005 "Assignment to undefined variable" sometimes
-  fires without a precise source location when variables are declared
-  inside `if` branches and referenced later. Workaround: declare all
-  variables at the top of the function before any branches.
+  crash at runtime in all tested contexts.
+  → [mire-lang/libs#5](https://github.com/mire-lang/libs/issues/5)
+  → Use the custom `json_quote()` helper instead.
+- Mire runtime bug: `\n` character in string concatenation/comparison
+  inside loops can trigger `free(): invalid pointer`.
+  → [mire-lang/Avenys-rust#22](https://github.com/mire-lang/Avenys-rust/issues/22)
+- Compiler error E0005 "Assignment to undefined variable" with imprecise
+  source location when variables are declared inside `if` branches.
+  → [mire-lang/Avenys-rust#23](https://github.com/mire-lang/Avenys-rust/issues/23)
 
 ## [0.16.1] - 2026-06-29
 

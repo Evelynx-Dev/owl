@@ -801,7 +801,7 @@ Un paquete en `empresa` con prioridad 2 no sobrescribe nunca un paquete del mism
 
 ## 9. Known Issues (Mire / Kioto)
 
-### `json::quoted()` crashes at runtime
+### `json::quoted()` crashes at runtime (kioto)
 
 `json::quoted()` from `kioto/ext/json` causes `free(): invalid pointer`
 in all tested contexts. Minimal reproduction:
@@ -810,6 +810,8 @@ in all tested contexts. Minimal reproduction:
 load kioto
 pub fn main: () { use dasu(json::quoted("hello")) }
 ```
+
+**Issue:** [mire-lang/libs#5](https://github.com/mire-lang/libs/issues/5)
 
 **Workaround:** Use a custom `json_quote(str)` helper:
 
@@ -820,16 +822,18 @@ fn json_quote: (s :str) :str { return "\"" + s + "\"" }
 No escaping needed for current data (project names, versions, paths,
 compiler lines never contain `"`, `\`, `\n`, `\r`, or `\t`).
 
-### `\n` in loops triggers `free(): invalid pointer`
+### `\n` in loops triggers `free(): invalid pointer` (Mire runtime)
 
 Comparing a substring against `"\n"` inside a loop or concatenating
 `"\n"` with other strings in a loop body causes heap corruption.
 The crash occurs during `free()` in the compiled binary.
 
+**Issue:** [mire-lang/Avenys-rust#22](https://github.com/mire-lang/Avenys-rust/issues/22)
+
 **Status:** Under investigation. Believed to be a memory management
 bug in Mire's runtime string handling.
 
-### `load kioto::json` syntax error
+### `load kioto::json` syntax error (not confirmed)
 
 ```
 load kioto
@@ -840,7 +844,10 @@ load kioto::json   # Syntax Error at line 2 (blank line confuses parser)
 The json module is already loaded through `kioto`'s internal `mod.mire`,
 so `load kioto` alone is sufficient.
 
-### Compiler error E0005: imprecise source location
+**Note:** Could not reproduce this in a clean file. Likely caused by file
+corruption during editing, not an actual parser bug.
+
+### Compiler error E0005: imprecise source location (Mire backend)
 
 When variables are declared inside `if` branches and later referenced
 at the function level, the compiler backend may emit:
@@ -849,6 +856,8 @@ at the function level, the compiler backend may emit:
 error[E0005] ── Assignment to undefined variable
   <source location unavailable>
 ```
+
+**Issue:** [mire-lang/Avenys-rust#23](https://github.com/mire-lang/Avenys-rust/issues/23)
 
 **Workaround:** Declare all variables at the function's top level,
 before any `if`/`while` branches. Mire's scope is function-level,
