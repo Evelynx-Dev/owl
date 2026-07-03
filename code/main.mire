@@ -257,9 +257,9 @@ fn cmd_new: (name :str) {
     set n5 = n0
     use fs_write(n5 + "/owl.toml" "[project]\nname = \"" + n + "\"\nversion = \"0.1.0\"\ndescription = \"\"\nentry = \"code/main.mire\"\n\n[build]\ncompiler = \"mire\"\nprofile = \"debug\"\nopt-level = 0\n\n[paths]\nsources = \"code\"\ntests = \"tests\"\noutput = \"bin\"\ncache = \"bin/.cache\"\n\n[dependencies]\n")
     set n6 = n0
-    use fs_write(n6 + "/code/main.mire" "load kioto\n\n#!cfg::test\npub fn main: () {\n    use dasu(\"ok\")\n}\n")
+    use fs_write(n6 + "/code/main.mire" "pub fn main: () {\n    use dasu(\"ok\")\n}\n")
     set n7 = n0
-    use fs_write(n7 + "/tests/smoke.mire" "load kioto\n\n#!cfg::test\npub fn test_smoke: () -> bool {\n    return true\n}\n")
+    use fs_write(n7 + "/tests/smoke.mire" "#!cfg::test\npub fn test_smoke: () :bool {\n    return true\n}\n")
     set n8 = n0
     use dasu("Project created: " + n8)
 }
