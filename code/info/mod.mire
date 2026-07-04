@@ -1,5 +1,6 @@
 module info
 load util
+load deps
 
 pub fn cmd_info: (args :vec[str]) {
     set json_mode = false :bool mut
@@ -53,73 +54,17 @@ pub fn cmd_info: (args :vec[str]) {
 
     set deps_raw = "" :str mut
     if has_proj {
-        set content = fs_read("owl.toml")
-        set lines = util::split(content "\n")
-        set nl = len(lines)
-        set in_deps = false :bool mut
+        set names = deps::get_dep_names()
+        set ni = len(names)
         set di = 0 :i64 mut
-        while di < nl {
-            set rline = util::list_get(lines di)
-            set line = util::trim(rline)
-            set parts_hash = util::split(line "#")
-            set clean = util::trim(util::list_get(parts_hash 0))
-            if clean != "" {
-                set parts_br = util::split(clean "[")
-                if len(parts_br) >= 2 {
-                    set close = util::split(util::list_get(parts_br 1) "]")
-                    if len(close) >= 1 {
-                        set sec = util::trim(util::list_get(close 0))
-                        if sec == "dependencies" { set in_deps = true } else {
-                            if in_deps { break }
-                        }
-                    }
-                } else {
-                    if in_deps {
-                        set kv = util::split(clean "=")
-                        if len(kv) >= 2 {
-                            set key = util::trim(util::list_get(kv 0))
-                            set raw_val = util::list_get(kv 1) :str mut
-                            set j = 2 :i64 mut
-                            while j < len(kv) {
-                                set raw_val = raw_val + "=" + util::list_get(kv j)
-                                set j += 1
-                            }
-                            set ver_s = "-" :str mut
-                            set src_s = "?" :str mut
-                            set tbl = util::trim(raw_val) :str mut
-                            if util::startswith(tbl "{") {
-                                set tbl = util::substr(tbl 1 len(tbl) - 1)
-                            }
-                            if util::endswith(tbl "}") {
-                                set tbl = util::substr(tbl 0 len(tbl) - 1)
-                            }
-                            set tbl = util::trim(tbl)
-                            set fields = util::split(tbl ",")
-                            set fi = 0 :i64 mut
-                            while fi < len(fields) {
-                                set f = util::trim(util::list_get(fields fi))
-                                set fkv = util::split(f "=")
-                                if len(fkv) >= 2 {
-                                    set fk = util::trim(util::list_get(fkv 0))
-                                    set fv_r = util::list_get(fkv 1) :str mut
-                                    set kk = 2 :i64 mut
-                                    while kk < len(fkv) {
-                                        set fv_r = fv_r + "=" + util::list_get(fkv kk)
-                                        set kk += 1
-                                    }
-                                    set fv = util::trim(fv_r) :str mut
-                                    if util::startswith(fv "\"") && util::endswith(fv "\"") {
-                                        set fv = util::substr(fv 1 len(fv) - 2)
-                                    }
-                                    if fk == "version" { set ver_s = fv }
-                                    if fk == "path" { set src_s = fv }
-                                }
-                                set fi += 1
-                            }
-                            set deps_raw = deps_raw + key + "|" + ver_s + "|" + src_s + "\n"
-                        }
-                    }
-                }
+        while di < ni {
+            set key = util::list_get(names di)
+            if key != "" {
+                set ver_s = deps::get_dep_field(key "version") :str mut
+                if ver_s == "" { set ver_s = "-" }
+                set src_s = deps::get_dep_field(key "path") :str mut
+                if src_s == "" { set src_s = "?" }
+                set deps_raw = deps_raw + key + "|" + ver_s + "|" + src_s + "\n"
             }
             set di += 1
         }

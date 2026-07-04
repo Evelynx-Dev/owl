@@ -7,6 +7,8 @@ load build
 load check
 load info
 load ui
+load deps
+load args
 
 extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"

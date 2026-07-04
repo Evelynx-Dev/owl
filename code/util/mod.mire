@@ -1,5 +1,6 @@
 module util
 
+/! Filesystem operations !/
 pub fn mkdir_p: (path :str) {
     use proc_run("mkdir -p \"" + path + "\"")
 }
@@ -8,10 +9,22 @@ pub fn rm_RF: (path :str) {
     use proc_run("rm -rf \"" + path + "\"")
 }
 
-pub fn json_quote: (s :str) :str {
-    return "\"" + s + "\""
+pub fn fs_make_readonly: (path :str) {
+    if !fs_exists(path) { return }
+    use proc_run("chmod -R a-w \"" + path + "\" 2>/dev/null || true")
 }
 
+pub fn fs_make_writable: (path :str) {
+    if !fs_exists(path) { return }
+    use proc_run("chmod -R u+w \"" + path + "\" 2>/dev/null || true")
+}
+
+/! Error reporting !/
+pub fn error_line: (tag :str msg :str) {
+    use dasu("error[" + tag + "] " + msg)
+}
+
+/! TOML parser !/
 pub fn toml_get: (file :str section :str key :str) :str {
     if !fs_exists(file) { return "" }
     set content = fs_read(file)
@@ -52,20 +65,36 @@ fn toml_extract_val: (content :&str, val_start :i64) :str {
     return trimmed
 }
 
-pub fn error_line: (tag :str msg :str) {
-    use dasu("error[" + tag + "] " + msg)
+/! JSON helpers !/
+pub fn json_quote: (s :str) :str {
+    return "\"" + s + "\""
 }
 
-pub fn fs_make_readonly: (path :str) {
-    if !fs_exists(path) { return }
-    use proc_run("chmod -R a-w \"" + path + "\" 2>/dev/null || true")
+pub fn json_get_str: (content :&str key :str) :str {
+    set search = "\"" + key + "\": \""
+    set pos = strings::index_of(content search)
+    if pos < 0 { return "" }
+    set start = pos + strings::len(search)
+    set after = strings::substr(content start strings::len(content))
+    set end = strings::index_of(after "\"")
+    if end < 0 { return "" }
+    return strings::substr(after 0 end)
 }
 
-pub fn fs_make_writable: (path :str) {
-    if !fs_exists(path) { return }
-    use proc_run("chmod -R u+w \"" + path + "\" 2>/dev/null || true")
+pub fn json_get_int_str: (content :&str key :str) :str {
+    set search = "\"" + key + "\": "
+    set pos = strings::index_of(content search)
+    if pos < 0 { return "" }
+    set start = pos + strings::len(search)
+    set after = strings::substr(content start strings::len(content))
+    set end = strings::index_of(after ",") :i64 mut
+    if end < 0 { set end = strings::index_of(after "\n") }
+    if end < 0 { set end = strings::index_of(after "}") }
+    if end < 0 { return strings::trim(after) }
+    return strings::trim(strings::substr(after 0 end))
 }
 
+/! Paths and environment !/
 pub fn owl_home: () :str {
     set home = env::get("HOME")
     if home == "" { return "/tmp/.owl" }
@@ -95,6 +124,7 @@ pub fn ensure_owl_home: () {
     use mkdir_p(owl_home_keys())
 }
 
+/! Version and compiler info !/
 pub fn owl_version: () :str { return "0.17.0" }
 
 pub fn compiler_version: () :str {
@@ -103,6 +133,7 @@ pub fn compiler_version: () :str {
     return "Avenys (unknown)"
 }
 
+/! Project config !/
 pub fn has_project: () :bool {
     return fs_exists("owl.toml")
 }
@@ -131,30 +162,7 @@ pub fn config_required: (section :str key :str) :str {
     return ""
 }
 
-pub fn json_get_str: (content :&str key :str) :str {
-    set search = "\"" + key + "\": \""
-    set pos = strings::index_of(content search)
-    if pos < 0 { return "" }
-    set start = pos + strings::len(search)
-    set after = strings::substr(content start strings::len(content))
-    set end = strings::index_of(after "\"")
-    if end < 0 { return "" }
-    return strings::substr(after 0 end)
-}
-
-pub fn json_get_int_str: (content :&str key :str) :str {
-    set search = "\"" + key + "\": "
-    set pos = strings::index_of(content search)
-    if pos < 0 { return "" }
-    set start = pos + strings::len(search)
-    set after = strings::substr(content start strings::len(content))
-    set end = strings::index_of(after ",") :i64 mut
-    if end < 0 { set end = strings::index_of(after "\n") }
-    if end < 0 { set end = strings::index_of(after "}") }
-    if end < 0 { return strings::trim(after) }
-    return strings::trim(strings::substr(after 0 end))
-}
-
+/! Kioto wrappers !/
 extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
 extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 extern fn rt_string_to_i64: (value :str) :i64 lib "c"

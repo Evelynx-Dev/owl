@@ -26,3 +26,5 @@ build = { path = "./code/build" }
 check = { path = "./code/check" }
 info = { path = "./code/info" }
 ui = { path = "./code/ui" }
+deps = { path = "./code/deps" }
+args = { path = "./code/args" }

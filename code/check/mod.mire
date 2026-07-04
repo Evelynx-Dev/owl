@@ -1,5 +1,6 @@
 module check
 load util
+load deps
 
 fn regenerate_owl_toml: (fields :str) {
     if !util::has_project() {
@@ -186,40 +187,7 @@ pub fn cmd_checkup: (args :vec[str]) {
         }
 
         use dasu("")
-        set content = fs_read("owl.toml")
-        set dep_lines = util::split(content "\n")
-        set dl_n = len(dep_lines)
-        set in_deps = false :bool mut
-        set dep_count = 0 :i64 mut
-        set di = 0 :i64 mut
-        while di < dl_n {
-            set drline = util::list_get(dep_lines di)
-            set dline = util::trim(drline)
-            set dparts_hash = util::split(dline "#")
-            set dclean = util::trim(util::list_get(dparts_hash 0))
-            if dclean != "" {
-                set dparts_br = util::split(dclean "[")
-                if len(dparts_br) >= 2 {
-                    set dclose = util::split(util::list_get(dparts_br 1) "]")
-                    if len(dclose) >= 1 {
-                        set dsec = util::trim(util::list_get(dclose 0))
-                        if dsec == "dependencies" {
-                            set in_deps = true
-                        } else {
-                            if in_deps { set di = dl_n }
-                        }
-                    }
-                } else {
-                    if in_deps {
-                        set dkv = util::split(dclean "=")
-                        if len(dkv) >= 2 {
-                            set dep_count += 1
-                        }
-                    }
-                }
-            }
-            set di += 1
-        }
+        set dep_count = deps::count_deps()
         if dep_count == 0 {
             use dasu("  [WARN] [dependencies]: no dependencies configured")
         } else {
@@ -256,100 +224,31 @@ pub fn cmd_check: (args :vec[str]) {
         return
     }
 
-    set content = fs_read("owl.toml")
-    set lines = util::split(content "\n")
-    set n = len(lines)
-
     use dasu("  checking dependencies ...")
     use dasu("")
 
-    set in_deps = false :bool mut
-    set found_any = false :bool mut
+    set names = deps::get_dep_names()
+    set nn = len(names)
+    set found_any = nn > 0 :bool mut
     set i = 0 :i64 mut
-
-    while i < n {
-        set rline = util::list_get(lines i)
-        set line = util::trim(rline)
-
-        set parts_hash = util::split(line "#")
-        set clean = util::trim(util::list_get(parts_hash 0))
-
-        if clean != "" {
-            set parts_br = util::split(clean "[")
-            if len(parts_br) >= 2 {
-                set close = util::split(util::list_get(parts_br 1) "]")
-                if len(close) >= 1 {
-                    set sec = util::trim(util::list_get(close 0))
-                    if sec == "dependencies" {
-                        set in_deps = true
-                    } else {
-                        if in_deps { break }
-                    }
-                }
+    while i < nn {
+        set key = util::list_get(names i)
+        if key != "" {
+            set path_val = deps::get_dep_field(key "path")
+            set ver_val = deps::get_dep_field(key "version")
+            if path_val == "" {
+                use dasu("  [FAIL]  " + key + ": no path specified")
             } else {
-                if in_deps {
-                    set kv = util::split(clean "=")
-                    if len(kv) >= 2 {
-                        set key = util::trim(util::list_get(kv 0))
-                        set raw_val = util::list_get(kv 1) :str mut
-                        set j = 2 :i64 mut
-                        while j < len(kv) {
-                            set raw_val = raw_val + "=" + util::list_get(kv j)
-                            set j += 1
-                        }
-
-                        set path_val = "" :str mut
-                        set ver_val = "" :str mut
-
-                        set tbl = util::trim(raw_val) :str mut
-                        if util::startswith(tbl "{") {
-                            set tbl = util::substr(tbl 1 len(tbl) - 1)
-                        }
-                        if util::endswith(tbl "}") {
-                            set tbl = util::substr(tbl 0 len(tbl) - 1)
-                        }
-                        set tbl = util::trim(tbl)
-
-                        set fields = util::split(tbl ",")
-                        set k = 0 :i64 mut
-                        while k < len(fields) {
-                            set f = util::trim(util::list_get(fields k))
-                            set fkv = util::split(f "=")
-                            if len(fkv) >= 2 {
-                                set fk = util::trim(util::list_get(fkv 0))
-                                set fv_raw = util::list_get(fkv 1) :str mut
-                                set kk = 2 :i64 mut
-                                while kk < len(fkv) {
-                                    set fv_raw = fv_raw + "=" + util::list_get(fkv kk)
-                                    set kk += 1
-                                }
-                                set fv = util::trim(fv_raw) :str mut
-                                if util::startswith(fv "\"") && util::endswith(fv "\"") {
-                                    set fv = util::substr(fv 1 len(fv) - 2)
-                                }
-                                if fk == "path" { set path_val = fv }
-                                if fk == "version" { set ver_val = fv }
-                            }
-                            set k += 1
-                        }
-
-                        set found_any = true
-                        if path_val == "" {
-                            use dasu("  [FAIL]  " + key + ": no path specified")
-                        } else {
-                            if fs_exists(path_val) {
-                                set msg = "  [OK]    " + key :str mut
-                                if ver_val != "" {
-                                    set msg = msg + "  ->  " + path_val + "  (v" + ver_val + ")"
-                                } else {
-                                    set msg = msg + "  ->  " + path_val
-                                }
-                                use dasu(msg)
-                            } else {
-                                use dasu("  [FAIL]  " + key + "  ->  " + path_val + "  (not found)")
-                            }
-                        }
+                if fs_exists(path_val) {
+                    set msg = "  [OK]    " + key :str mut
+                    if ver_val != "" {
+                        set msg = msg + "  ->  " + path_val + "  (v" + ver_val + ")"
+                    } else {
+                        set msg = msg + "  ->  " + path_val
                     }
+                    use dasu(msg)
+                } else {
+                    use dasu("  [FAIL]  " + key + "  ->  " + path_val + "  (not found)")
                 }
             }
         }
