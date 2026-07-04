@@ -14,44 +14,42 @@ pub fn json_quote: (s :str) :str {
 
 pub fn toml_get: (file :str section :str key :str) :str {
     if !fs_exists(file) { return "" }
-
     set content = fs_read(file)
+
     set section_marker = "[" + section + "]"
-    set sec_start = strings::index_of(content section_marker)
-    if sec_start < 0 { return "" }
+    set section_start = strings::index_of(content section_marker)
+    if section_start < 0 { return "" }
 
-    set after_section = strings::substr(content sec_start + len(section_marker) strings::len(content))
-    set next_section = strings::index_of(after_section "[")
-    set section_body = after_section :str mut
-    if next_section >= 0 { set section_body = strings::substr(after_section 0 next_section) }
-
-    set key_eq = key + " =" :str mut
-    set key_pos = strings::index_of(section_body key_eq) :i64 mut
-    if key_pos < 0 { set key_eq = key + "\t=" }
-    set key_pos = strings::index_of(section_body key_eq) :i64 mut
-    if key_pos < 0 { set key_eq = key + "=" }
-    set key_pos = strings::index_of(section_body key_eq) :i64 mut
-    if key_pos < 0 { return "" }
-
-    set after_key = strings::substr(section_body key_pos + len(key_eq) 99999)
-    set after_trim = strings::trim(after_key)
-    set nl_pos = strings::index_of(after_trim "\n")
-    set raw_val = after_trim :str mut
-    if nl_pos >= 0 { set raw_val = strings::substr(after_trim 0 nl_pos) }
-    set trimmed_val = strings::trim(raw_val)
-
-    if strings::startswith(trimmed_val "\"") && strings::endswith(trimmed_val "\"") {
-        set slen = len(trimmed_val)
-        if slen == 2 { return "" }
-        set no_first = strings::replace(trimmed_val "\"" "" 1)
-        set rev = strings::replace(no_first "\"" "\x01" len(no_first))
-        set last_pos = strings::index_of(no_first "\"")
-        if last_pos >= 0 {
-            return strings::replace(no_first "\"" "" len(no_first))
-        }
-        return no_first
+    set key_with_space = "\n" + key + " ="
+    set key_pos1 = strings::index_of(content key_with_space)
+    if key_pos1 >= 0 {
+        set val_start = key_pos1 + len(key_with_space)
+        return toml_extract_val(content val_start)
     }
-    return trimmed_val
+
+    set key_no_space = "\n" + key + "="
+    set key_pos2 = strings::index_of(content key_no_space)
+    if key_pos2 >= 0 {
+        set val_start = key_pos2 + len(key_no_space)
+        return toml_extract_val(content val_start)
+    }
+    return ""
+}
+
+fn toml_extract_val: (content :&str, val_start :i64) :str {
+    set after_key = strings::substr(content val_start 9999)
+    set nl_pos = strings::index_of(after_key "\n")
+    set raw_val = after_key :str mut
+    if nl_pos >= 0 { set raw_val = strings::substr(after_key 0 nl_pos) }
+    set trimmed = strings::trim(raw_val)
+    if strings::startswith(trimmed "\"") && strings::endswith(trimmed "\"") {
+        set no_start = strings::replace(trimmed "\"" "")
+        if strings::endswith(no_start "\"") {
+            return strings::replace(no_start "\"" "")
+        }
+        return no_start
+    }
+    return trimmed
 }
 
 pub fn error_line: (tag :str msg :str) {
