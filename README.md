@@ -99,14 +99,15 @@ cache = "bin/.cache"
 - [Technical notes](docs/technical.md) — architecture overview
 - [Roadmap](docs/roadmap.md) — planned features
 
-## Recent changes (v0.16.2)
+## Recent changes (v0.17.0)
 
-- **`info --json`:** New machine-readable JSON output for CI/IDE
-  integration. Outputs project metadata, compiler info, LLVM version,
-  and dependency list as structured JSON.
-- **Known issues documented:** See `docs/roadmap.md` §9 for Mire/Kioto
-  compiler bugs and workarounds.
-- **Version bump:** `0.16.1` → `0.16.2`
+- **Modularized codebase:** Split monolithic `code/main.mire` into 8
+  sub-packages (`util`, `crypto`, `trust`, `registry`, `build`, `check`,
+  `info`, `ui`) with proper dependency management via `owl.toml`.
+- **Compiler fixes:** Resolved multi-level namespace resolution in MIR
+  codegen, error positions now accurate in MIR lowering, loader prefix
+  bug fixed for cross-package dependency symbols.
+- **Version bump:** `0.16.2` → `0.17.0`
 
 ## Recent changes (v0.16.1)
 

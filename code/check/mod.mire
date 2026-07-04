@@ -1,0 +1,367 @@
+module check
+load util
+
+fn regenerate_owl_toml: (fields :str) {
+    if !util::has_project() {
+        use dasu("No owl.toml found in the current directory")
+        return
+    }
+
+    set n = util::toml_get("owl.toml" "project" "name") :str mut
+    if n == "" && util::contains(fields "name") { set n = "myproject" }
+    set v = util::toml_get("owl.toml" "project" "version") :str mut
+    if v == "" && util::contains(fields "version") { set v = "0.1.0" }
+    set d = util::toml_get("owl.toml" "project" "description") :str mut
+    if d == "" && util::contains(fields "description") { set d = "" }
+    set e = util::toml_get("owl.toml" "project" "entry") :str mut
+    if e == "" && util::contains(fields "entry") { set e = "code/main.mire" }
+    set comp = util::toml_get("owl.toml" "build" "compiler") :str mut
+    if comp == "" && util::contains(fields "compiler") { set comp = "mire" }
+    set p = util::toml_get("owl.toml" "build" "profile") :str mut
+    if p == "" && util::contains(fields "profile") { set p = "debug" }
+    set o = util::toml_get("owl.toml" "build" "opt-level") :str mut
+    if o == "" && util::contains(fields "opt-level") { set o = "0" }
+    set src = util::toml_get("owl.toml" "paths" "sources") :str mut
+    if src == "" && util::contains(fields "sources") { set src = "code" }
+    set t = util::toml_get("owl.toml" "paths" "tests") :str mut
+    if t == "" && util::contains(fields "tests") { set t = "tests" }
+    set out = util::toml_get("owl.toml" "paths" "output") :str mut
+    if out == "" && util::contains(fields "output") { set out = "bin" }
+    set cache = util::toml_get("owl.toml" "paths" "cache") :str mut
+    if cache == "" && util::contains(fields "cache") { set cache = "bin/.cache" }
+
+    use fs_write("owl.toml" "[project]\nname = \"" + n + "\"\nversion = \"" + v + "\"\ndescription = \"" + d + "\"\nentry = \"" + e + "\"\n\n[build]\ncompiler = \"" + comp + "\"\nprofile = \"" + p + "\"\nopt-level = " + o + "\n\n[paths]\nsources = \"" + src + "\"\ntests = \"" + t + "\"\noutput = \"" + out + "\"\ncache = \"" + cache + "\"\n\n[dependencies]\n")
+    use dasu("  [FIX]  owl.toml: regenerated with defaults for: " + fields)
+}
+
+pub fn cmd_checkup: (args :vec[str]) {
+    set do_fix = false :bool mut
+    set fix_fields = "" :str mut
+    set n = rt_vec_len(args)
+    set i = 2 :i64 mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if a == "--fix" {
+            set do_fix = true
+        } else {
+            if do_fix {
+                if fix_fields == "" {
+                    set fix_fields = a
+                } else {
+                    set fix_fields = fix_fields + " " + a
+                }
+            }
+        }
+        set i += 1
+    }
+
+    if do_fix && fix_fields == "" {
+        use dasu("")
+        use dasu("  [HINT] usage: owl checkup --fix <field> [<field> ...]")
+        use dasu("         fields: name, version, description, entry, profile,")
+        use dasu("                 opt-level, compiler, output, cache, sources, tests")
+        use dasu("         example: owl checkup --fix name version entry profile")
+        set do_fix = false
+    }
+
+    set all_ok = true :bool mut
+
+    set compiler_out = util::trim(proc_run("mire --version 2>&1 || true"))
+    if compiler_out == "" {
+        use dasu("  [FAIL] mire: not found")
+        use dasu("         install mire (Avenys) to compile projects")
+        set all_ok = false
+    } else {
+        set lines = util::split(compiler_out "\n")
+        set first = util::list_get(lines 0)
+        use dasu("  [OK]   mire: " + first)
+    }
+
+    use dasu("")
+    if util::has_project() {
+        set toml_valid = true :bool mut
+
+        set name = util::toml_get("owl.toml" "project" "name")
+        if name == "" {
+            use dasu("  [FAIL] [project].name: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [project].name: " + name)
+        }
+
+        set ver = util::toml_get("owl.toml" "project" "version")
+        if ver == "" {
+            use dasu("  [FAIL] [project].version: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [project].version: " + ver)
+        }
+
+        set desc = util::toml_get("owl.toml" "project" "description")
+        if desc == "" {
+            use dasu("  [FAIL] [project].description: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [project].description: " + desc)
+        }
+
+        set entry = util::toml_get("owl.toml" "project" "entry")
+        if entry == "" {
+            use dasu("  [FAIL] [project].entry: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(entry) {
+                use dasu("  [OK]   [project].entry: " + entry + "  ->  exists")
+            } else {
+                use dasu("  [FAIL] [project].entry: " + entry + "  ->  not found")
+                set toml_valid = false
+            }
+        }
+
+        set profile = util::toml_get("owl.toml" "build" "profile")
+        if profile == "" {
+            use dasu("  [FAIL] [build].profile: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [build].profile: " + profile)
+        }
+
+        set opt = util::toml_get("owl.toml" "build" "opt-level")
+        if opt == "" {
+            use dasu("  [FAIL] [build].opt-level: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [build].opt-level: " + opt)
+        }
+
+        set compiler = util::toml_get("owl.toml" "build" "compiler")
+        if compiler == "" {
+            use dasu("  [WARN] [build].compiler: missing (will default to 'mire')")
+        } else {
+            use dasu("  [OK]   [build].compiler: " + compiler)
+        }
+
+        set out_dir = util::toml_get("owl.toml" "paths" "output")
+        if out_dir == "" {
+            use dasu("  [FAIL] [paths].output: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [paths].output: " + out_dir)
+        }
+
+        set cache_dir = util::toml_get("owl.toml" "paths" "cache")
+        if cache_dir == "" {
+            use dasu("  [FAIL] [paths].cache: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(cache_dir) {
+                use dasu("  [OK]   [paths].cache: " + cache_dir + "  ->  exists")
+            } else {
+                use dasu("  [WARN] [paths].cache: " + cache_dir + "  ->  will be created on next build")
+            }
+        }
+
+        set sources = util::toml_get("owl.toml" "paths" "sources")
+        if sources == "" {
+            use dasu("  [FAIL] [paths].sources: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(sources) {
+                use dasu("  [OK]   [paths].sources: " + sources + "  ->  exists")
+            } else {
+                use dasu("  [WARN] [paths].sources: " + sources + "  ->  will be created on next build")
+            }
+        }
+
+        set tests = util::toml_get("owl.toml" "paths" "tests")
+        if tests == "" {
+            use dasu("  [FAIL] [paths].tests: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(tests) {
+                use dasu("  [OK]   [paths].tests: " + tests + "  ->  exists")
+            } else {
+                use dasu("  [WARN] [paths].tests: " + tests + "  ->  will be created on next build")
+            }
+        }
+
+        use dasu("")
+        set content = fs_read("owl.toml")
+        set dep_lines = util::split(content "\n")
+        set dl_n = len(dep_lines)
+        set in_deps = false :bool mut
+        set dep_count = 0 :i64 mut
+        set di = 0 :i64 mut
+        while di < dl_n {
+            set drline = util::list_get(dep_lines di)
+            set dline = util::trim(drline)
+            set dparts_hash = util::split(dline "#")
+            set dclean = util::trim(util::list_get(dparts_hash 0))
+            if dclean != "" {
+                set dparts_br = util::split(dclean "[")
+                if len(dparts_br) >= 2 {
+                    set dclose = util::split(util::list_get(dparts_br 1) "]")
+                    if len(dclose) >= 1 {
+                        set dsec = util::trim(util::list_get(dclose 0))
+                        if dsec == "dependencies" {
+                            set in_deps = true
+                        } else {
+                            if in_deps { set di = dl_n }
+                        }
+                    }
+                } else {
+                    if in_deps {
+                        set dkv = util::split(dclean "=")
+                        if len(dkv) >= 2 {
+                            set dep_count += 1
+                        }
+                    }
+                }
+            }
+            set di += 1
+        }
+        if dep_count == 0 {
+            use dasu("  [WARN] [dependencies]: no dependencies configured")
+        } else {
+            use dasu("  [OK]   [dependencies]: " + rt_i64_to_string(dep_count) + " configured")
+        }
+
+        if do_fix {
+            use dasu("")
+            regenerate_owl_toml(fix_fields)
+        }
+
+        if !toml_valid {
+            set all_ok = false
+        }
+    } else {
+        use dasu("  [FAIL] project: no owl.toml found")
+        set all_ok = false
+    }
+
+    use dasu("")
+    if all_ok {
+        use dasu("  [OK]   all checks passed")
+    } else {
+        if !do_fix {
+            use dasu("  [HINT] run 'owl checkup --fix <field> [<field> ...]' to repair specific fields")
+            use dasu("         see 'owl checkup --help' or check the docs for available fields")
+        }
+    }
+}
+
+pub fn cmd_check: (args :vec[str]) {
+    if !util::has_project() {
+        use dasu("  [FAIL]  no owl.toml found")
+        return
+    }
+
+    set content = fs_read("owl.toml")
+    set lines = util::split(content "\n")
+    set n = len(lines)
+
+    use dasu("  checking dependencies ...")
+    use dasu("")
+
+    set in_deps = false :bool mut
+    set found_any = false :bool mut
+    set i = 0 :i64 mut
+
+    while i < n {
+        set rline = util::list_get(lines i)
+        set line = util::trim(rline)
+
+        set parts_hash = util::split(line "#")
+        set clean = util::trim(util::list_get(parts_hash 0))
+
+        if clean != "" {
+            set parts_br = util::split(clean "[")
+            if len(parts_br) >= 2 {
+                set close = util::split(util::list_get(parts_br 1) "]")
+                if len(close) >= 1 {
+                    set sec = util::trim(util::list_get(close 0))
+                    if sec == "dependencies" {
+                        set in_deps = true
+                    } else {
+                        if in_deps { break }
+                    }
+                }
+            } else {
+                if in_deps {
+                    set kv = util::split(clean "=")
+                    if len(kv) >= 2 {
+                        set key = util::trim(util::list_get(kv 0))
+                        set raw_val = util::list_get(kv 1) :str mut
+                        set j = 2 :i64 mut
+                        while j < len(kv) {
+                            set raw_val = raw_val + "=" + util::list_get(kv j)
+                            set j += 1
+                        }
+
+                        set path_val = "" :str mut
+                        set ver_val = "" :str mut
+
+                        set tbl = util::trim(raw_val) :str mut
+                        if util::startswith(tbl "{") {
+                            set tbl = util::substr(tbl 1 len(tbl) - 1)
+                        }
+                        if util::endswith(tbl "}") {
+                            set tbl = util::substr(tbl 0 len(tbl) - 1)
+                        }
+                        set tbl = util::trim(tbl)
+
+                        set fields = util::split(tbl ",")
+                        set k = 0 :i64 mut
+                        while k < len(fields) {
+                            set f = util::trim(util::list_get(fields k))
+                            set fkv = util::split(f "=")
+                            if len(fkv) >= 2 {
+                                set fk = util::trim(util::list_get(fkv 0))
+                                set fv_raw = util::list_get(fkv 1) :str mut
+                                set kk = 2 :i64 mut
+                                while kk < len(fkv) {
+                                    set fv_raw = fv_raw + "=" + util::list_get(fkv kk)
+                                    set kk += 1
+                                }
+                                set fv = util::trim(fv_raw) :str mut
+                                if util::startswith(fv "\"") && util::endswith(fv "\"") {
+                                    set fv = util::substr(fv 1 len(fv) - 2)
+                                }
+                                if fk == "path" { set path_val = fv }
+                                if fk == "version" { set ver_val = fv }
+                            }
+                            set k += 1
+                        }
+
+                        set found_any = true
+                        if path_val == "" {
+                            use dasu("  [FAIL]  " + key + ": no path specified")
+                        } else {
+                            if fs_exists(path_val) {
+                                set msg = "  [OK]    " + key :str mut
+                                if ver_val != "" {
+                                    set msg = msg + "  ->  " + path_val + "  (v" + ver_val + ")"
+                                } else {
+                                    set msg = msg + "  ->  " + path_val
+                                }
+                                use dasu(msg)
+                            } else {
+                                use dasu("  [FAIL]  " + key + "  ->  " + path_val + "  (not found)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        set i += 1
+    }
+
+    if !found_any {
+        use dasu("  no dependencies configured")
+    }
+
+    use dasu("")
+    if found_any {
+        use dasu("  integrity checks: pending (requires file manager)")
+    }
+}

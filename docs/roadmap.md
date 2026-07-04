@@ -380,10 +380,10 @@ output:      bin/debug/
 cache:       bin/.cache/
 target:      x86_64-linux-gnu
 
-compiler:    Avenys v0.16.0
-owl:         v0.16.0
+compiler:    Avenys v3.11.38
+owl:         v0.17.0
 LLVM:        17.0.6
-language:    Mire v0.16.0
+language:    Mire v3.11.38
 abi:         1
 
 dependencies:

@@ -1,11 +1,13 @@
 # Owl Technical Notes
 
-## Architecture (v0.16.0)
+## Architecture (v0.17.0)
 
 ### CLI core
-- Entrypoint: `code/main.mire` (~1530 lines)
+- Entrypoint: `code/main.mire` (~90 lines, slim dispatcher)
+- Codebase modularized into 8 sub-packages under `code/`:
+  `util`, `crypto`, `trust`, `registry`, `build`, `check`, `info`, `ui`
+- `load kioto` centralized in `main.mire` only; sub-packages use `util::*` wrappers
 - Supports both long commands and pacman-style short flags (`-B`, `-T`, `-S`, etc.)
-- Subflags like `-Si`, `-Qi`, `-Syu` parsed via string prefix matching
 - Public UX optimized for the compiler workflow (Avenys-first)
 
 ### Command dispatch
@@ -70,7 +72,7 @@ Owl relies on compiler built-ins (not kioto imports):
 - `owl clean --bin` removes `bin/`
 - `owl clean --all` removes both plus `deps/` and `_test_harness.mire`
 
-### Current scope (v0.16.0)
+### Current scope (v0.17.0)
 - Project management: `new`, `run`, `build`, `test`, `clean`, `info`, `check`, `checkup`, `profile`
 - `checkup` validates all 11 owl.toml fields and dependency count
 - Package management: `add`, `import-repo`, `sync`, `drop`, `verify`

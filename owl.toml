@@ -1,6 +1,6 @@
 [project]
 name = "owl"
-version = "0.16.0"
+version = "0.17.0"
 description = "Package and project manager for the Mire (Avenys) language"
 entry = "code/main.mire"
 
@@ -18,3 +18,11 @@ cache = "bin/.cache"
 [dependencies]
 kioto = { path = "../kioto" }
 testlib = { path = "./tests/lib" }
+util = { path = "./code/util" }
+crypto = { path = "./code/crypto" }
+trust = { path = "./code/trust" }
+registry = { path = "./code/registry" }
+build = { path = "./code/build" }
+check = { path = "./code/check" }
+info = { path = "./code/info" }
+ui = { path = "./code/ui" }

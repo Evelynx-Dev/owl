@@ -1,0 +1,223 @@
+module registry
+load util
+load crypto
+load trust
+
+pub fn cmd_registry: (args :vec[str]) {
+    set n = rt_vec_len(args)
+    if n < 3 {
+        use dasu("Usage: owl reg|registry add/remove/list/enable/disable/priority <name/url>")
+        return
+    }
+    set subcmd = rt_vec_get_str(args 2)
+
+    if subcmd == "add" {
+        set n2 = n
+        if n2 < 4 {
+            use dasu("Usage: owl reg|registry add <url>")
+            return
+        }
+        set url = rt_vec_get_str(args 3)
+        cmd_registry_add(url)
+        return
+    }
+
+    if subcmd == "remove" {
+        set n3 = n
+        if n3 < 4 {
+            use dasu("Usage: owl reg|registry remove <name>")
+            return
+        }
+        set name = rt_vec_get_str(args 3)
+        cmd_registry_remove(name)
+        return
+    }
+
+    if subcmd == "list" {
+        cmd_registry_list()
+        return
+    }
+
+    if subcmd == "enable" {
+        set n4 = n
+        if n4 < 4 {
+            use dasu("Usage: owl reg|registry enable <name>")
+            return
+        }
+        set name = rt_vec_get_str(args 3)
+        set reg_path = util::owl_home_registries() + "/" + name
+        if !fs_exists(reg_path) {
+            use dasu("  [FAIL]  registry '" + name + "' not found")
+            return
+        }
+        set disabled_file = reg_path + "/.disabled"
+        if fs_exists(disabled_file) {
+            use fs_drop(disabled_file)
+            use dasu("  [OK]    registry '" + name + "' enabled")
+        } else {
+            use dasu("  [INFO]  registry '" + name + "' is already enabled")
+        }
+        return
+    }
+
+    if subcmd == "disable" {
+        set n5 = n
+        if n5 < 4 {
+            use dasu("Usage: owl reg|registry disable <name>")
+            return
+        }
+        set name = rt_vec_get_str(args 3)
+        set reg_path = util::owl_home_registries() + "/" + name
+        if !fs_exists(reg_path) {
+            use dasu("  [FAIL]  registry '" + name + "' not found")
+            return
+        }
+        use fs_write(reg_path + "/.disabled" "")
+        use dasu("  [OK]    registry '" + name + "' disabled")
+        return
+    }
+
+    if subcmd == "priority" {
+        set n6 = n
+        if n6 < 5 {
+            use dasu("Usage: owl reg|registry priority <name> <n>")
+            return
+        }
+        set name = rt_vec_get_str(args 3)
+        set priority = rt_vec_get_str(args 4)
+        set reg_path = util::owl_home_registries() + "/" + name
+        if !fs_exists(reg_path) {
+            use dasu("  [FAIL]  registry '" + name + "' not found")
+            return
+        }
+        use fs_write(reg_path + "/.priority" util::trim(priority) + "\n")
+        use dasu("  [OK]    registry '" + name + "' priority set to " + util::trim(priority))
+        return
+    }
+
+    use dasu("Unknown registry subcommand: " + subcmd)
+    use dasu("Usage: owl reg|registry add/remove/list/enable/disable/priority")
+}
+
+fn cmd_registry_add: (url :str) {
+    set tmp = crypto::crypto_tempdir("owl-reg")
+    if tmp == "" {
+        use dasu("  [FAIL]  could not create temp directory")
+        return
+    }
+
+    use proc_run("curl -sL -o \"" + tmp + "/registry.json\" \"" + url + "/registry.json\" 2>/dev/null || true")
+    set content = util::trim(fs_read(tmp + "/registry.json"))
+    use proc_run("rm -rf \"" + tmp + "\" 2>/dev/null")
+    if content == "" {
+        use dasu("  [FAIL]  could not fetch " + url + "/registry.json")
+        return
+    }
+
+    set name = util::json_get_str(content "name")
+    if name == "" {
+        use dasu("  [FAIL]  registry.json: missing 'name'")
+        return
+    }
+
+    set protocol = util::json_get_int_str(content "protocol")
+    if protocol == "" {
+        use dasu("  [FAIL]  registry.json: missing 'protocol'")
+        return
+    }
+    if protocol != "1" {
+        use dasu("  [FAIL]  registry.json: unsupported protocol v" + protocol + " (expected 1)")
+        return
+    }
+
+    set pubkey = util::json_get_str(content "public-key")
+    if pubkey == "" {
+        use dasu("  [FAIL]  registry.json: missing 'public-key'")
+        return
+    }
+
+    set reg_dir = util::owl_home_registries()
+    set reg_path = reg_dir + "/" + name
+    set reg_json_path = reg_path + "/registry.json"
+    use util::mkdir_p(reg_dir)
+    if fs_exists(reg_path) {
+        use dasu("  [FAIL]  registry '" + name + "' already exists at " + reg_path)
+        return
+    }
+    use util::mkdir_p(reg_path)
+    use fs_write(reg_json_path content)
+
+    set fp = util::trim(proc_run("printf '%s' \"" + pubkey + "\" 2>/dev/null | sha256sum | cut -d' ' -f1 2>/dev/null || true"))
+    if fp == "" || len(fp) != 64 {
+        use dasu("  [WARN]  could not compute fingerprint for public key")
+    } else {
+        use dasu("  [INFO]  trusted key fingerprint: " + fp)
+        use trust::trust_trust(fp)
+    }
+
+    use dasu("  [OK]    registry '" + name + "' added")
+}
+
+fn cmd_registry_list: () {
+    set reg_dir = util::owl_home_registries()
+    if !fs_exists(reg_dir) {
+        use dasu("  no registries configured")
+        return
+    }
+
+    set out = util::trim(proc_run("ls -1 \"" + reg_dir + "\" 2>/dev/null || true"))
+    if out == "" {
+        use dasu("  no registries configured")
+        return
+    }
+    set entries = util::split(out "\n")
+    set ni = len(entries)
+    set found = false :bool mut
+    set i = 0 :i64 mut
+    while i < ni {
+        set entry = util::trim(util::list_get(entries i))
+        if entry != "" {
+            set reg_path = reg_dir + "/" + entry
+            if fs_exists(reg_path + "/registry.json") {
+                set content = fs_read(reg_path + "/registry.json")
+                set name = util::json_get_str(content "name") :str mut
+                if name == "" { set name = entry }
+                set protocol = util::json_get_int_str(content "protocol") :str mut
+                if protocol == "" { set protocol = "?" }
+                set status = "enabled" :str mut
+                if fs_exists(reg_path + "/.disabled") { set status = "disabled" }
+                set priority = "" :str mut
+                if fs_exists(reg_path + "/.priority") {
+                    set priority = util::trim(fs_read(reg_path + "/.priority"))
+                }
+
+                if found {
+                    use dasu("")
+                }
+                set found = true
+                set line = "  " + name + "  v" + protocol + "  [" + status + "]" :str mut
+                if priority != "" { set line = line + "  priority=" + priority }
+                use dasu(line)
+            }
+        }
+        set i += 1
+    }
+
+    if !found {
+        use dasu("  no registries configured")
+    }
+}
+
+fn cmd_registry_remove: (name :str) {
+    set reg_path = util::owl_home_registries() + "/" + name
+    if !fs_exists(reg_path) {
+        use dasu("  [FAIL]  registry '" + name + "' not found")
+        return
+    }
+    if !fs_exists(reg_path + "/registry.json") {
+        use dasu("  [FAIL]  '" + reg_path + "' is not a registry directory")
+        return
+    }
+    use util::rm_RF(reg_path)
+    use dasu("  [OK]    registry '" + name + "' removed")
+}

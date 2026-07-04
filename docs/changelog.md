@@ -1,5 +1,31 @@
 # Owl Changelog
 
+## [0.17.0] - 2026-07-04
+
+### Changed
+- **Modularized codebase**: split monolithic `code/main.mire` (988 lines) into
+  8 sub-packages under `code/`:
+  - `util/` — kioto wrappers (strings, lists), TOML parser, filesystem helpers
+  - `crypto/` — SHA256, Ed25519 verification
+  - `trust/` — trusted/revoked key management
+  - `registry/` — registry add/remove/list
+  - `build/` — compile pipeline, `owl new`
+  - `check/` — `owl checkup`, `owl check`
+  - `info/` — `owl info`, `owl clean`
+  - `ui/` — banner, help text
+- `load kioto` centralized in `main.mire` only; sub-packages use `util::*` wrappers
+- All sub-packages listed as path dependencies in `owl.toml`
+- `proc_spawn`/`proc_wait` used as bare builtins instead of `proc::spawn_shell`/`proc::wait`
+- `len` builtin replaces `strings::len` where applicable
+
+### Compiler (Avenys) fixes
+- `resolve_named_call` in MIR codegen: tries all prefix splits via
+  `match_indices('.').rev().find_map(...)` for correct multi-level namespace resolution
+- Error position display in MIR lowering: uses `expression_location(expr)` /
+  `statement_location(stmt)` instead of hardcoded (0, 0)
+- `statement_prefix` in loader: returns empty when origin is from a different
+  package tree, preventing incorrect prefixing of dependency symbols
+
 ## [0.16.2] - 2026-06-29
 
 ### Added
