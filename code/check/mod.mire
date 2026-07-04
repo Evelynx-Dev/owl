@@ -228,19 +228,30 @@ pub fn cmd_check: (args :vec[str]) {
     use dasu("")
 
     set names = deps::get_dep_names()
-    set nn = len(names)
-    set found_any = nn > 0 :bool mut
-    set i = 0 :i64 mut
-    while i < nn {
-        set key = util::list_get(names i)
+    set found_any = names != "" :bool mut
+    set nlen = len(names)
+    set pos = 0 :i64 mut
+    while pos < nlen {
+        set nl = strings::index_of(strings::substr(names pos nlen - pos) "\n")
+        set key = "" :str mut
+        if nl < 0 {
+            set key = util::trim(strings::substr(names pos nlen - pos))
+            set pos = nlen
+        } else {
+            set key = util::trim(strings::substr(names pos nl))
+            set pos = pos + nl + 1
+        }
         if key != "" {
-            set path_val = deps::get_dep_field(key "path")
-            set ver_val = deps::get_dep_field(key "version")
+            set key_path = key
+            set key_ver = key
+            set key_display = key
+            set path_val = deps::get_dep_field(key_path "path")
+            set ver_val = deps::get_dep_field(key_ver "version")
             if path_val == "" {
-                use dasu("  [FAIL]  " + key + ": no path specified")
+                use dasu("  [FAIL]  " + key_display + ": no path specified")
             } else {
                 if fs_exists(path_val) {
-                    set msg = "  [OK]    " + key :str mut
+                    set msg = "  [OK]    " + key_display :str mut
                     if ver_val != "" {
                         set msg = msg + "  ->  " + path_val + "  (v" + ver_val + ")"
                     } else {
@@ -252,7 +263,6 @@ pub fn cmd_check: (args :vec[str]) {
                 }
             }
         }
-        set i += 1
     }
 
     if !found_any {

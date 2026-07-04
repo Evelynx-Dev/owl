@@ -1,153 +1,109 @@
 module deps
 load util
 
-fn parse_field: (tbl :&str, field :&str) :str {
-    set fields = util::split(tbl ",")
-    set fi = 0 :i64 mut
-    while fi < len(fields) {
-        set f = util::trim(util::list_get(fields fi))
-        set fkv = util::split(f "=")
-        if len(fkv) >= 2 {
-            set fk = util::trim(util::list_get(fkv 0))
-            if fk == field {
-                set fv_r = util::list_get(fkv 1) :str mut
-                set kk = 2 :i64 mut
-                while kk < len(fkv) {
-                    set fv_r = fv_r + "=" + util::list_get(fkv kk)
-                    set kk += 1
-                }
-                set fv = util::trim(fv_r) :str mut
-                if util::startswith(fv "\"") { set fv = util::replace(fv "\"" "") }
-                if util::endswith(fv "\"") { set fv = util::replace(fv "\"" "") }
-                return fv
-            }
-        }
-        set fi += 1
-    }
-    return ""
-}
-
-pub fn get_dep_field: (dep_name :&str, field :&str) :str {
-    if !util::has_project() { return "" }
+fn deps_section: () :str {
     set content = fs_read("owl.toml")
-    set lines = util::split(content "\n")
-    set nl = len(lines)
-    set in_deps = false :bool mut
-    set i = 0 :i64 mut
-    while i < nl {
-        set rline = util::list_get(lines i)
-        set line = util::trim(rline)
-        set parts_hash = util::split(line "#")
-        set clean = util::trim(util::list_get(parts_hash 0))
-        if clean != "" {
-            set parts_br = util::split(clean "[")
-            if len(parts_br) >= 2 {
-                set close = util::split(util::list_get(parts_br 1) "]")
-                if len(close) >= 1 {
-                    set sec = util::trim(util::list_get(close 0))
-                    if sec == "dependencies" { set in_deps = true } else {
-                        if in_deps { break }
-                    }
-                }
-            } else {
-                if in_deps {
-                    set kv = util::split(clean "=")
-                    if len(kv) >= 2 {
-                        set key = util::trim(util::list_get(kv 0))
-                        if key == dep_name {
-                            set raw_val = util::list_get(kv 1) :str mut
-                            set j = 2 :i64 mut
-                            while j < len(kv) {
-                                set raw_val = raw_val + "=" + util::list_get(kv j)
-                                set j += 1
-                            }
-                            set tbl = util::trim(raw_val) :str mut
-                            if util::startswith(tbl "{") { set tbl = util::replace(tbl "{" "") }
-                            if util::endswith(tbl "}") { set tbl = util::replace(tbl "}" "") }
-                            return parse_field(util::trim(tbl) field)
-                        }
-                    }
-                }
-            }
-        }
-        set i += 1
-    }
-    return ""
+    set marker = "[dependencies]"
+    set sec_start = strings::index_of(content marker)
+    if sec_start < 0 { return "" }
+    set start_pos = sec_start + len(marker)
+    set after = strings::substr(content start_pos 9999)
+    set next_sec = strings::index_of(after "\n[")
+    if next_sec >= 0 { return strings::substr(after 0 next_sec) }
+    return after
 }
 
-pub fn dep_exists: (dep_name :&str) :bool {
+fn find_dep_raw: (dep_name :str) :str {
+    set section = deps_section()
+    if section == "" { return "" }
+
+    set search_a = "\n" + dep_name + " = "
+    set pos = strings::index_of(section search_a) :i64 mut
+    set used_marker = search_a :str mut
+    if pos < 0 {
+        set search_b = "\n" + dep_name + "="
+        set pos = strings::index_of(section search_b)
+        set used_marker = search_b
+    }
+    if pos < 0 {
+        set search_c = dep_name + " = "
+        set pos = strings::index_of(section search_c)
+        set used_marker = search_c
+    }
+    if pos < 0 { return "" }
+
+    set after_key = strings::substr(section pos + len(used_marker) 9999)
+    set nl_pos = strings::index_of(after_key "\n")
+    if nl_pos >= 0 { return strings::substr(after_key 0 nl_pos) }
+    return after_key
+}
+
+fn extract_field: (tbl :str, field :str) :str {
+    set trimmed = util::trim(tbl) :str mut
+    if util::startswith(trimmed "{") { set trimmed = util::replace(trimmed "{" "") }
+    if util::endswith(trimmed "}") { set trimmed = util::replace(trimmed "}" "") }
+    set trimmed = util::trim(trimmed)
+
+    set search = field + " ="
+    set pos = strings::index_of(trimmed search)
+    if pos < 0 { return "" }
+    set after = strings::substr(trimmed pos + len(search) 9999)
+    set val = util::trim(after) :str mut
+    set comma_pos = strings::index_of(val ",")
+    if comma_pos >= 0 { set val = strings::substr(val 0 comma_pos) }
+    set val = util::trim(val)
+    if util::startswith(val "\"") { set val = util::replace(val "\"" "") }
+    if util::endswith(val "\"") { set val = util::replace(val "\"" "") }
+    return util::trim(val)
+}
+
+pub fn get_dep_field: (dep_name :str, field :str) :str {
+    set raw = find_dep_raw(dep_name)
+    if raw == "" { return "" }
+    return extract_field(raw field)
+}
+
+pub fn dep_exists: (dep_name :str) :bool {
     return get_dep_field(dep_name "path") != ""
 }
 
-pub fn get_dep_names: () :vec[str] {
-    if !util::has_project() { return util::split("" "\n") }
-    set content = fs_read("owl.toml")
-    set lines = util::split(content "\n")
-    set nl = len(lines)
-    set in_deps = false :bool mut
+pub fn get_dep_names: () :str {
+    set section = deps_section()
+    if section == "" { return "" }
     set result = "" :str mut
-    set i = 0 :i64 mut
-    while i < nl {
-        set rline = util::list_get(lines i)
-        set line = util::trim(rline)
-        set parts_hash = util::split(line "#")
-        set clean = util::trim(util::list_get(parts_hash 0))
-        if clean != "" {
-            set parts_br = util::split(clean "[")
-            if len(parts_br) >= 2 {
-                set close = util::split(util::list_get(parts_br 1) "]")
-                if len(close) >= 1 {
-                    set sec = util::trim(util::list_get(close 0))
-                    if sec == "dependencies" { set in_deps = true } else {
-                        if in_deps { break }
-                    }
-                }
-            } else {
-                if in_deps {
-                    set kv = util::split(clean "=")
-                    if len(kv) >= 2 {
-                        set key = util::trim(util::list_get(kv 0))
+    set content = "\n" + section
+    set clen = len(content)
+    set pos = 0 :i64 mut
+    while pos < clen {
+        set nl = strings::index_of(strings::substr(content pos clen - pos) "\n")
+        if nl < 0 { set pos = clen } else {
+            set real_nl = pos + nl
+            set line = strings::substr(content pos real_nl - pos)
+            set trimmed = util::trim(line)
+            if trimmed != "" && !util::startswith(trimmed "[") {
+                set eq_pos = strings::index_of(trimmed "=")
+                if eq_pos >= 0 {
+                    set key = util::trim(strings::substr(trimmed 0 eq_pos))
+                    if key != "" {
                         if result != "" { set result = result + "\n" + key } else { set result = key }
                     }
                 }
             }
+            set pos = real_nl + 1
         }
-        set i += 1
     }
-    return util::split(result "\n")
+    return result
 }
 
 pub fn count_deps: () :i64 {
-    if !util::has_project() { return 0 }
-    set content = fs_read("owl.toml")
-    set lines = util::split(content "\n")
-    set nl = len(lines)
-    set in_deps = false :bool mut
+    set names = get_dep_names()
+    if names == "" { return 0 }
     set count = 0 :i64 mut
-    set i = 0 :i64 mut
-    while i < nl {
-        set rline = util::list_get(lines i)
-        set line = util::trim(rline)
-        set parts_hash = util::split(line "#")
-        set clean = util::trim(util::list_get(parts_hash 0))
-        if clean != "" {
-            set parts_br = util::split(clean "[")
-            if len(parts_br) >= 2 {
-                set close = util::split(util::list_get(parts_br 1) "]")
-                if len(close) >= 1 {
-                    set sec = util::trim(util::list_get(close 0))
-                    if sec == "dependencies" { set in_deps = true } else {
-                        if in_deps { break }
-                    }
-                }
-            } else {
-                if in_deps {
-                    set kv = util::split(clean "=")
-                    if len(kv) >= 2 { set count += 1 }
-                }
-            }
-        }
-        set i += 1
+    set pos = 0 :i64 mut
+    set nlen = len(names)
+    while pos < nlen {
+        set nl = strings::index_of(strings::substr(names pos nlen - pos) "\n")
+        if nl < 0 { if util::trim(strings::substr(names pos nlen - pos)) != "" { set count += 1 } set pos = nlen } else { if util::trim(strings::substr(names pos nl)) != "" { set count += 1 } set pos = pos + nl + 1 }
     }
     return count
 }
