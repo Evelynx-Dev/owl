@@ -11,6 +11,22 @@ load ui
 extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
 
+fn collect_test_flags: (args :&vec[str]) :str {
+    set n = rt_vec_len(args)
+    set i = 2 :i64 mut
+    set flags = "" :str mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if a == "--verbose" || a == "-v" || a == "--no-run" {
+            set flags = flags + " " + a
+        } else {
+            set flags = flags + " \"" + a + "\""
+        }
+        set i += 1
+    }
+    return flags
+}
+
 pub fn main: () {
     set args = env_args()
     set n = rt_vec_len(args)
@@ -39,7 +55,14 @@ pub fn main: () {
     set a_check = args
     set a_info = args
     set a_clean = args
+    set a_test = args
     set a_registry = args
+
+    if cmd == "-T" || cmd == "test" {
+        set out = proc_run("mire test " + collect_test_flags(a_test))
+        use dasu(out)
+        return
+    }
 
     if cmd == "-B" || cmd == "build" {
         build::compile_pipeline(a_build false)

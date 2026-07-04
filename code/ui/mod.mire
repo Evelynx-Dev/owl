@@ -15,6 +15,7 @@ pub fn print_help: () {
     use dasu("Phase 1 - Build commands:")
     use dasu("  build  [file]  [-r|--release] [-O <0|1|2|3|s|z>]")
     use dasu("  run    [file]  [-r|--release] [-O <n>]")
+    use dasu("  test   [file]  [--verbose] [--no-run]")
     use dasu("")
     use dasu("Phase 1 - Project commands:")
     use dasu("  new    <Name>      create new project")
