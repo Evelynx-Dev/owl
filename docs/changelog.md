@@ -1,5 +1,20 @@
 # Owl Changelog
 
+## [0.17.1] - 2026-07-04
+
+### Fixed
+- `toml_get`: rewritten with `strings::index_of` to avoid kioto `vec[str]`
+  corruption in loops. All owl.toml fields (name, version, description, entry,
+  profile, opt-level, compiler, output, cache, sources, tests) parse correctly.
+  `owl build` + `owl run` now functional on fresh projects.
+- `owl new` template: `opt-level` quoted, non-empty `description`, removed
+  broken `#!cfg::test` directive from test template.
+
+### Compiler (Avenys) fixes
+- Type checking: `check_statement` now attaches source context to ALL errors
+  from nested statements, fixing ~130 type errors that showed
+  `<source location unavailable>`.
+
 ## [0.17.0] - 2026-07-04
 
 ### Changed
