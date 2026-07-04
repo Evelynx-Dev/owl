@@ -47,10 +47,14 @@ fn extract_field: (tbl :str, field :str) :str {
     set search = field + " ="
     set pos = strings::index_of(trimmed search)
     if pos < 0 { return "" }
-    set after = strings::substr(trimmed pos + len(search) 9999)
+    set after_start = pos + len(search)
+    set after = strings::substr(trimmed after_start 9999)
     set val = util::trim(after) :str mut
     set comma_pos = strings::index_of(val ",")
-    if comma_pos >= 0 { set val = strings::substr(val 0 comma_pos) }
+    if comma_pos >= 0 {
+        set want_len = comma_pos
+        set val = strings::substr(val 0 want_len)
+    }
     set val = util::trim(val)
     if util::startswith(val "\"") { set val = util::replace(val "\"" "") }
     if util::endswith(val "\"") { set val = util::replace(val "\"" "") }
