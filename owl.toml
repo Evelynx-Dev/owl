@@ -7,7 +7,7 @@ entry = "code/main.mire"
 [build]
 compiler = "mire"
 profile = "debug"
-opt-level = 0
+opt-level = "0"
 
 [paths]
 sources = "code"
