@@ -125,7 +125,7 @@ pub fn ensure_owl_home: () {
 }
 
 /! Version and compiler info !/
-pub fn owl_version: () :str { return "0.17.0" }
+pub fn owl_version: () :str { return "0.17.1" }
 
 pub fn compiler_version: () :str {
     set v = strings::trim(proc_run("mire --version"))
