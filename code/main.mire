@@ -10,6 +10,7 @@ load ui
 load deps
 load args
 load lockfile
+load import
 
 extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
@@ -60,6 +61,7 @@ pub fn main: () {
     set a_clean = args
     set a_test = args
     set a_registry = args
+    set a_import = args
 
     if cmd == "-T" || cmd == "test" {
         set out = proc::run("mire test " + collect_test_flags(a_test))
@@ -108,6 +110,11 @@ pub fn main: () {
 
     if cmd == "reg" || cmd == "registry" {
         registry::cmd_registry(a_registry)
+        return
+    }
+
+    if cmd == "import" || cmd == "-I" {
+        import::cmd_import(a_import)
         return
     }
 

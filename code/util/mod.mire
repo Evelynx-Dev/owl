@@ -109,6 +109,10 @@ pub fn owl_home_lib: () :str {
     return owl_home() + "/lib"
 }
 
+pub fn owl_home_modules: () :str {
+    return owl_home() + "/modules"
+}
+
 pub fn owl_home_cache_tarballs: () :str {
     return owl_home() + "/cache/tarballs"
 }

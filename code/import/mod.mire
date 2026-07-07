@@ -1,0 +1,93 @@
+module import
+load util
+
+pub fn cmd_import: (args :vec[str]) {
+    set n = rt_vec_len(args)
+    if n < 3 {
+        use dasu("usage: owl import <name> [--path <path>]")
+        use dasu("       owl -I <name> [--path <path>]")
+        return
+    }
+
+    set i = 2 :i64 mut
+    set name_arg = "" :str mut
+    set has_path = false :bool mut
+    set path_val = "" :str mut
+    while i < n {
+        set arg = rt_vec_get_str(args i)
+        if arg == "--path" || arg == "-p" {
+            set has_path = true
+            set i2 = i + 1
+            if i2 < n { set path_val = rt_vec_get_str(args i2) }
+        } else {
+            if name_arg == "" { set name_arg = arg }
+        }
+        set i = i + 1
+    }
+
+    if name_arg == "" {
+        use dasu("error: package name required")
+        return
+    }
+
+    if !util::has_project() {
+        use dasu("error: must be run from a project directory (no owl.toml found)")
+        return
+    }
+
+    set name_copy = name_arg :str
+    if deps::dep_exists(name_copy) {
+        use dasu("error: dependency '" + name_arg + "' already in owl.toml")
+        return
+    }
+
+    set c = fs::read("owl.toml")
+    if c == "" {
+        use dasu("error: owl.toml is empty or missing")
+        return
+    }
+
+    set marker = "[dependencies]"
+    set sec_pos = strings::index_of(c marker)
+    if sec_pos < 0 {
+        use dasu("error: [dependencies] section not found in owl.toml")
+        return
+    }
+
+    set backup_name = "owl.toml.backup"
+    use fs_write(backup_name c)
+
+    set insert_pos = sec_pos + len(marker)
+    set before = strings::substr(c 0 insert_pos)
+    set rem = len(c) - insert_pos
+    set after = strings::substr(c insert_pos rem)
+
+    if has_path {
+        if path_val == "" {
+            use dasu("error: --path requires a value")
+            return
+        }
+        set dep_line = name_arg + " = { path = \"" + path_val + "\" }"
+        set new_c = before + "\n" + dep_line + after
+        use fs_write("owl.toml" new_c)
+        set ok_msg = "imported '" + name_arg + "' from " + path_val
+        use dasu(ok_msg)
+    } else {
+        set owl_home = util::owl_home()
+        set mp = owl_home + "/modules/" + name_arg + "/owl.toml"
+        if !fs_exists(mp) {
+            set err_msg = "error: '" + name_arg + "' not found in " + owl_home + "/modules/"
+            use dasu(err_msg)
+            use dasu("  has the package been installed?")
+            return
+        }
+        set version = util::toml_get(mp "project" "version") :str mut
+        if version == "" { set version = "0.1.0" }
+        set real_path = owl_home + "/modules/" + name_arg
+        set dep_line = name_arg + " = { path = \"" + real_path + "\", version = \"" + version + "\" }"
+        set new_c = before + "\n" + dep_line + after
+        use fs_write("owl.toml" new_c)
+        set ok_msg = "imported '" + name_arg + "' v" + version + " from cache"
+        use dasu(ok_msg)
+    }
+}
