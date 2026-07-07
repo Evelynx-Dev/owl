@@ -2,13 +2,13 @@ module crypto
 load util
 
 pub fn crypto_tempdir: (prefix :str) :str {
-    set d = util::trim(proc_run("mktemp -d /tmp/" + prefix + ".XXXXXX 2>/dev/null || true"))
+    set d = util::trim(proc::run("mktemp -d /tmp/" + prefix + ".XXXXXX 2>/dev/null || true"))
     return d
 }
 
 pub fn crypto_sha256: (file :str) :str {
     if !fs_exists(file) { return "" }
-    set out = util::trim(proc_run("sha256sum \"" + file + "\" 2>/dev/null; shasum -a 256 \"" + file + "\" 2>/dev/null; true"))
+    set out = util::trim(proc::run("sha256sum \"" + file + "\" 2>/dev/null; shasum -a 256 \"" + file + "\" 2>/dev/null; true"))
     if out == "" { return "" }
     set parts = util::split(out " ")
     if len(parts) < 1 { return "" }
@@ -24,23 +24,23 @@ pub fn crypto_verify_ed25519: (pubkey_b64 :str data_file :str sig_b64 :str) :str
     set tmp = crypto_tempdir("owl-crypto")
     if tmp == "" { return "false" }
 
-    use proc_run("printf '%s' \"" + pubkey_b64 + "\" 2>/dev/null | base64 -d > \"" + tmp + "/pubkey.bin\" 2>/dev/null")
+    use proc::run("printf '%s' \"" + pubkey_b64 + "\" 2>/dev/null | base64 -d > \"" + tmp + "/pubkey.bin\" 2>/dev/null")
     if !fs_exists(tmp + "/pubkey.bin") {
-        use proc_run("rm -rf \"" + tmp + "\" 2>/dev/null")
+        use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
         return "false"
     }
-    use proc_run("printf '%s' \"" + sig_b64 + "\" 2>/dev/null | base64 -d > \"" + tmp + "/sig.bin\" 2>/dev/null")
+    use proc::run("printf '%s' \"" + sig_b64 + "\" 2>/dev/null | base64 -d > \"" + tmp + "/sig.bin\" 2>/dev/null")
     if !fs_exists(tmp + "/sig.bin") {
-        use proc_run("rm -rf \"" + tmp + "\" 2>/dev/null")
+        use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
         return "false"
     }
 
-    use proc_run("openssl pkey -inform DER -in \"" + tmp + "/pubkey.bin\" -pubin -out \"" + tmp + "/pubkey.pem\" 2>/dev/null || true")
+    use proc::run("openssl pkey -inform DER -in \"" + tmp + "/pubkey.bin\" -pubin -out \"" + tmp + "/pubkey.pem\" 2>/dev/null || true")
 
     set cmd = "openssl pkeyutl -verify -pubin -inkey \"" + tmp + "/pubkey.pem\" -inform PEM -in \"" + data_file + "\" -sigfile \"" + tmp + "/sig.bin\" -rawin 2>/dev/null && echo 'OK' || echo 'FAIL'"
-    set result = util::trim(proc_run(cmd))
+    set result = util::trim(proc::run(cmd))
 
-    use proc_run("rm -rf \"" + tmp + "\" 2>/dev/null")
+    use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
 
     if util::contains(result "OK") { return "true" }
     return "false"
@@ -49,7 +49,7 @@ pub fn crypto_verify_ed25519: (pubkey_b64 :str data_file :str sig_b64 :str) :str
 pub fn crypto_verify_pemfile: (pem_file :str data_file :str sig_file :str) :str {
     if !fs_exists(pem_file) || !fs_exists(data_file) || !fs_exists(sig_file) { return "false" }
     set cmd = "openssl pkeyutl -verify -pubin -inkey \"" + pem_file + "\" -inform PEM -in \"" + data_file + "\" -sigfile \"" + sig_file + "\" -rawin 2>/dev/null"
-    set result = util::trim(proc_run(cmd + " && echo 'OK' || echo 'FAIL'"))
+    set result = util::trim(proc::run(cmd + " && echo 'OK' || echo 'FAIL'"))
     if util::contains(result "OK") { return "true" }
     return "false"
 }

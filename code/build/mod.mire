@@ -50,7 +50,7 @@ pub fn compile_pipeline: (args :vec[str] is_run :bool) {
         if is_run { set cmd = cmd + " run " + cli_file } else { set cmd = cmd + " build " + cli_file }
         if cli_profile == "release" { set cmd = cmd + " --release" } else { set cmd = cmd + " --debug" }
         if cli_opt != "" { set cmd = cmd + " -O " + cli_opt }
-        set out = proc_run(cmd)
+        set out = proc::run(cmd)
         use dasu(out)
         return
     }
@@ -85,14 +85,14 @@ pub fn compile_pipeline: (args :vec[str] is_run :bool) {
     set build_cmd = build_cmd + " -O " + opt
     use dasu("  [" + profile + " -O" + opt + "]")
 
-    if !is_run {
-        set out = proc_run(build_cmd)
+    if is_run {
+        set build_out = proc::run(build_cmd)
+        use dasu(build_out)
+    } else {
+        set out = proc::run(build_cmd)
         use dasu(out)
         return
     }
-
-    set build_out = proc_run(build_cmd)
-    use dasu(build_out)
 
     set name = entry :str mut
     if cli_file != "" { set name = cli_file }

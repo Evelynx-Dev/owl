@@ -61,7 +61,7 @@ pub fn main: () {
     set a_registry = args
 
     if cmd == "-T" || cmd == "test" {
-        set out = proc_run("mire test " + collect_test_flags(a_test))
+        set out = proc::run("mire test " + collect_test_flags(a_test))
         use dasu(out)
         return
     }

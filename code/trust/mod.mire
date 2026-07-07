@@ -5,7 +5,7 @@ pub fn trust_is_trusted: (fingerprint :str) :bool {
     if fingerprint == "" { return false }
     set trusted_path = util::owl_home() + "/keys/trusted.toml"
     if !fs_exists(trusted_path) { return false }
-    set content = fs_read(trusted_path)
+    set content = fs::read(trusted_path)
     return util::contains(content fingerprint)
 }
 
@@ -13,7 +13,7 @@ pub fn trust_is_revoked: (fingerprint :str) :bool {
     if fingerprint == "" { return false }
     set revoked_path = util::owl_home() + "/keys/revoked.toml"
     if !fs_exists(revoked_path) { return false }
-    set content = fs_read(revoked_path)
+    set content = fs::read(revoked_path)
     return util::contains(content fingerprint)
 }
 
@@ -22,7 +22,7 @@ pub fn trust_trust: (fingerprint :str) {
     set trusted_path = util::owl_home() + "/keys/trusted.toml"
     use util::mkdir_p(util::owl_home() + "/keys")
     set content = "" :str mut
-    if fs_exists(trusted_path) { set content = fs_read(trusted_path) }
+    if fs_exists(trusted_path) { set content = fs::read(trusted_path) }
     set content = content + "\n" + fingerprint + "\n"
     use fs_write(trusted_path util::trim(content) + "\n")
 }
@@ -34,7 +34,7 @@ pub fn trust_revoke: (fingerprint :str) {
     use util::mkdir_p(util::owl_home() + "/keys")
 
     if fs_exists(trusted_path) {
-        set content = fs_read(trusted_path)
+        set content = fs::read(trusted_path)
         set lines = util::split(content "\n")
         set n = len(lines)
         set new_content = "" :str mut
@@ -50,7 +50,7 @@ pub fn trust_revoke: (fingerprint :str) {
     }
 
     set content = "" :str mut
-    if fs_exists(revoked_path) { set content = fs_read(revoked_path) }
+    if fs_exists(revoked_path) { set content = fs::read(revoked_path) }
     set content = content + "\n" + fingerprint + "\n"
     use fs_write(revoked_path util::trim(content) + "\n")
 }

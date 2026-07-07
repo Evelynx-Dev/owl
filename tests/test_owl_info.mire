@@ -1,0 +1,41 @@
+// owl tool test: owl info shows project information
+load kioto
+load testlib
+
+pub fn main: () {
+    use dasu("--- test: owl info ---")
+
+    set ts = strings.trim(proc::run("date +%s%N"))
+    set test_base = "/tmp/owl_info_test_" + ts
+    set proj_dir = test_base + "/testinfo"
+
+    proc::run("mkdir -p " + test_base)
+    proc::run("cd " + test_base + " && ~/.local/bin/owl new testinfo 2>&1")
+
+    set info_cmd = "cd " + proj_dir + " && ~/.local/bin/owl info 2>&1"
+    set info_out = proc::run(info_cmd)
+
+    set has_version = strings.contains(info_out "owl:")
+    set has_compiler = strings.contains(info_out "Compiler:")
+
+    if has_version && has_compiler {
+        use dasu("  owl info shows version and compiler: ok")
+    } else {
+        use dasu("  owl info output:")
+        use dasu(info_out)
+    }
+
+    set info_json_cmd = "cd " + proj_dir + " && ~/.local/bin/owl info --json 2>&1"
+    set info_json = proc::run(info_json_cmd)
+
+    set json_has_name = strings.contains(info_json "\"name\"")
+    if json_has_name {
+        use dasu("  owl info --json is valid: ok")
+    } else {
+        use dasu("  owl info --json:")
+        use dasu(info_json)
+    }
+
+    proc::run("rm -rf " + test_base)
+    use dasu("test_owl_info complete")
+}

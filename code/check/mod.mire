@@ -2,7 +2,7 @@ module check
 load util
 load deps
 
-fn regenerate_owl_toml: (fields :str) {
+pub fn regenerate_owl_toml: (fields :str) {
     if !util::has_project() {
         use dasu("No owl.toml found in the current directory")
         return
@@ -67,7 +67,7 @@ pub fn cmd_checkup: (args :vec[str]) {
 
     set all_ok = true :bool mut
 
-    set compiler_out = util::trim(proc_run("mire --version 2>&1 || true"))
+    set compiler_out = util::trim(proc::run("mire --version 2>&1 || true"))
     if compiler_out == "" {
         use dasu("  [FAIL] mire: not found")
         use dasu("         install mire (Avenys) to compile projects")

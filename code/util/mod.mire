@@ -1,33 +1,25 @@
 module util
 
-/! Filesystem operations !/
-pub fn mkdir_p: (path :str) {
-    use proc_run("mkdir -p \"" + path + "\"")
+/! TOML parser (helpers first) !/
+pub fn toml_extract_val: (content :&str, val_start :i64) :str {
+    set after_key = strings::substr(content val_start 9999)
+    set nl_pos = strings::index_of(after_key "\n")
+    set raw_val = after_key :str mut
+    if nl_pos >= 0 { set raw_val = strings::substr(after_key 0 nl_pos) }
+    set trimmed = strings::trim(raw_val)
+    if strings::startswith(trimmed "\"") && strings::endswith(trimmed "\"") {
+        set no_start = strings::replace(trimmed "\"" "")
+        if strings::endswith(no_start "\"") {
+            return strings::replace(no_start "\"" "")
+        }
+        return no_start
+    }
+    return trimmed
 }
 
-pub fn rm_RF: (path :str) {
-    use proc_run("rm -rf \"" + path + "\"")
-}
-
-pub fn fs_make_readonly: (path :str) {
-    if !fs_exists(path) { return }
-    use proc_run("chmod -R a-w \"" + path + "\" 2>/dev/null || true")
-}
-
-pub fn fs_make_writable: (path :str) {
-    if !fs_exists(path) { return }
-    use proc_run("chmod -R u+w \"" + path + "\" 2>/dev/null || true")
-}
-
-/! Error reporting !/
-pub fn error_line: (tag :str msg :str) {
-    use dasu("error[" + tag + "] " + msg)
-}
-
-/! TOML parser !/
 pub fn toml_get: (file :str section :str key :str) :str {
     if !fs_exists(file) { return "" }
-    set content = fs_read(file)
+    set content = fs::read(file)
 
     set section_marker = "[" + section + "]"
     set section_start = strings::index_of(content section_marker)
@@ -49,20 +41,28 @@ pub fn toml_get: (file :str section :str key :str) :str {
     return ""
 }
 
-fn toml_extract_val: (content :&str, val_start :i64) :str {
-    set after_key = strings::substr(content val_start 9999)
-    set nl_pos = strings::index_of(after_key "\n")
-    set raw_val = after_key :str mut
-    if nl_pos >= 0 { set raw_val = strings::substr(after_key 0 nl_pos) }
-    set trimmed = strings::trim(raw_val)
-    if strings::startswith(trimmed "\"") && strings::endswith(trimmed "\"") {
-        set no_start = strings::replace(trimmed "\"" "")
-        if strings::endswith(no_start "\"") {
-            return strings::replace(no_start "\"" "")
-        }
-        return no_start
-    }
-    return trimmed
+/! Filesystem operations !/
+pub fn mkdir_p: (path :str) {
+    use proc::run("mkdir -p \"" + path + "\"")
+}
+
+pub fn rm_RF: (path :str) {
+    use proc::run("rm -rf \"" + path + "\"")
+}
+
+pub fn fs_make_readonly: (path :str) {
+    if !fs_exists(path) { return }
+    use proc::run("chmod -R a-w \"" + path + "\" 2>/dev/null || true")
+}
+
+pub fn fs_make_writable: (path :str) {
+    if !fs_exists(path) { return }
+    use proc::run("chmod -R u+w \"" + path + "\" 2>/dev/null || true")
+}
+
+/! Error reporting !/
+pub fn error_line: (tag :str msg :str) {
+    use dasu("error[" + tag + "] " + msg)
 }
 
 /! JSON helpers !/
@@ -125,10 +125,15 @@ pub fn ensure_owl_home: () {
 }
 
 /! Version and compiler info !/
-pub fn owl_version: () :str { return "0.17.1" }
+pub fn owl_version: () :str {
+    if !fs_exists("owl.toml") { return "?.?.?" }
+    set v = toml_get("owl.toml" "project" "version")
+    if v == "" { return "?.?.?" }
+    return v
+}
 
 pub fn compiler_version: () :str {
-    set v = strings::trim(proc_run("mire --version"))
+    set v = strings::trim(proc::run("mire --version"))
     if v != "" { return v }
     return "Avenys (unknown)"
 }

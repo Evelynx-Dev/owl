@@ -2,7 +2,7 @@ module deps
 load util
 
 fn deps_section: () :str {
-    set content = fs_read("owl.toml")
+    set content = fs::read("owl.toml")
     set marker = "[dependencies]"
     set sec_start = strings::index_of(content marker)
     if sec_start < 0 { return "" }

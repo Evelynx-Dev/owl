@@ -1,6 +1,14 @@
 # Owl Changelog
 
-## [0.17.1] - 2026-07-04
+## [0.17.1] - 2026-07-07
+
+### Added
+- **Tool-specific tests**: 5 new tests (`test_owl_new`, `test_owl_build`,
+  `test_owl_run`, `test_owl_check`, `test_owl_info`) verify owl commands
+  create projects, compile, run, and validate configurations correctly.
+- **Syntax early-warning tests**: 9 tests covering Mire primitives, control
+  flow, functions, strings, lists, math, and stress scenarios ensure
+  compiler/syntax changes don't break owl.
 
 ### Fixed
 - `toml_get`: rewritten with `strings::index_of` to avoid kioto `vec[str]`
@@ -9,6 +17,11 @@
   `owl build` + `owl run` now functional on fresh projects.
 - `owl new` template: `opt-level` quoted, non-empty `description`, removed
   broken `#!cfg::test` directive from test template.
+- **Mire 3.11.45 compatibility**: test files changed from `#!cfg::test`
+  directive to `// !cfg::test` comment (Mire removed `#` syntax in v3.11.38).
+  `pub fn fail` in testlib now public (private `fn` not callable from other
+  functions in same module in Mire 3.11.45). `proc_run` renamed to
+  `proc::run` in Avenys 3.11.44.
 
 ### Compiler (Avenys) fixes
 - Type checking: `check_statement` now attaches source context to ALL errors

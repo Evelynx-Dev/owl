@@ -4,7 +4,7 @@ extern fn rt_i64_to_string: (value :i64) :str lib "c"
 extern fn rt_f64_to_string: (value :f64) :str lib "c"
 extern fn pal_proc_exit: (status :i64) lib "c"
 
-fn fail: (msg :str) {
+pub fn fail: (msg :str) {
     use dasu("  FAIL: " + msg)
     use pal_proc_exit(1)
 }
