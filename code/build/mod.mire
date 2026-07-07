@@ -1,5 +1,6 @@
 module build
 load util
+load lockfile
 
 pub fn compile_pipeline: (args :vec[str] is_run :bool) {
     set mire = util::compiler_cmd()
@@ -52,6 +53,11 @@ pub fn compile_pipeline: (args :vec[str] is_run :bool) {
         if cli_opt != "" { set cmd = cmd + " -O " + cli_opt }
         set out = proc::run(cmd)
         use dasu(out)
+        return
+    }
+
+    if !lockfile::ensure_lockfile() {
+        use util::error_line("OWL0003" "lockfile missing - run owl install first")
         return
     }
 
