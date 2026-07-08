@@ -1,5 +1,35 @@
 # Owl Changelog
 
+## [0.24.0] - 2026-07-08
+
+### Phase 15 — Performance: Resolution cache
+
+- `semver::get_cached_resolution(name, constraint)` — busca en `~/.owl/cache/resolution.toml`
+- `semver::cache_resolution(name, constraint, version)` — escribe en caché
+- `resolve_from_registry()` consulta caché antes de registry, escribe en miss
+- `util::toml_get_from_string(content, section, key)` — parsea TOML desde string
+- `util::owl_home_cache_resolution()` — path helper: `~/.owl/cache/resolution.toml`
+- `util::ensure_owl_home()` ahora crea `~/.owl/cache/`
+
+### Phase 16 — Maintenance tools
+
+- **`owl gc`** — garbage collect: escanea `~/.owl/lib/`, remueve versiones huérfanas no referenciadas en ningún `owl.lock`
+- **`owl tree [--all]`** — árbol de dependencias: plano por defecto, `--all` muestra recursivo
+- **`owl profile [--json]`** — métricas de build: tamaño binario, compilador, último build, contador de builds
+- **`owl clean --global`** — limpia `~/.owl/cache/` y `~/.owl/modules/`
+- `deps::get_dep_names_from(toml_file)` — obtiene nombres de dependencias de cualquier owl.toml
+- `deps::get_dep_field_from(toml_file, dep_name, field)` — obtiene campo específico de cualquier owl.toml
+
+### Fixed
+
+- **Test runner symlink bug**: el descubrimiento de tests (`walkdir`) seguía symlinks, descubriendo `tests/lib/mod.mire` (symlink a `testlib/mod.mire`) como archivo de test. El archivo tiene `module`/`load` top-level que no son válidos dentro de `pub fn main: () { ... }`. Fix: `walkdir` salta entradas symlink. (Avenys `src/main.rs`)
+
+### Added
+
+- `code/gc/mod.mire` — new gc module
+- `code/tree/mod.mire` — new tree module
+- `code/profile/mod.mire` — new profile module
+
 ## [0.23.0] - 2026-07-08
 
 ### CLI cleanup — command consolidation

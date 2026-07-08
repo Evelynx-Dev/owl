@@ -1,0 +1,56 @@
+module gc
+load util
+
+pub fn cmd_gc: (args :vec[str]) {
+    set lib_dir = util::owl_home_lib()
+    if !fs_exists(lib_dir) {
+        use dasu("  nothing to clean - no packages installed")
+        use dasu("  done")
+        return
+    }
+
+    set removed = 0 :i64 mut
+    set kept = 0 :i64 mut
+
+    set pkg_list = util::trim(proc::run("ls \"" + lib_dir + "\" 2>/dev/null || true"))
+    if pkg_list == "" {
+        use dasu("  nothing to clean - no packages installed")
+        use dasu("  done")
+        return
+    }
+
+    set remaining = pkg_list :str mut
+    while remaining != "" {
+        set pkg = strings::substr(remaining 0 strings::index_of(remaining " "))
+        set nxt = strings::index_of(remaining " ")
+        if nxt < 0 { set remaining = "" } else { set remaining = strings::substr(remaining nxt + 1 9999) }
+
+        if pkg == "" { continue }
+        set pkg_dir = lib_dir + "/" + pkg
+        if !fs_exists(pkg_dir) { continue }
+
+        set ver_list = util::trim(proc::run("ls \"" + pkg_dir + "\" 2>/dev/null || true"))
+        set v_remaining = ver_list :str mut
+        while v_remaining != "" {
+            set ver = strings::substr(v_remaining 0 strings::index_of(v_remaining " "))
+            set nxt2 = strings::index_of(v_remaining " ")
+            if nxt2 < 0 { set v_remaining = "" } else { set v_remaining = strings::substr(v_remaining nxt2 + 1 9999) }
+
+            set ver_dir = pkg_dir + "/" + ver
+            if !fs_exists(ver_dir + "/meta.toml") {
+                use proc::run("rm -rf \"" + ver_dir + "\" 2>/dev/null || true")
+                set removed += 1
+            } else {
+                set kept += 1
+            }
+        }
+
+        set rem_vers = util::trim(proc::run("ls \"" + pkg_dir + "\" 2>/dev/null || true"))
+        if rem_vers == "" {
+            use proc::run("rmdir \"" + pkg_dir + "\" 2>/dev/null || true")
+        }
+    }
+
+    use dasu("  gc: " + util::i64_to_string(removed) + " orphaned versions removed, " + util::i64_to_string(kept) + " kept")
+    use dasu("  done")
+}

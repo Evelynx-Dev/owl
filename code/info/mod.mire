@@ -170,6 +170,7 @@ pub fn cmd_clean: (args :vec[str]) {
     set clean_bin = false :bool mut
     set clean_cache = false :bool mut
     set clean_all = false :bool mut
+    set clean_global = false :bool mut
 
     set n = rt_vec_len(args)
     set i = 2 :i64 mut
@@ -178,7 +179,15 @@ pub fn cmd_clean: (args :vec[str]) {
         if a == "--bin" { set clean_bin = true }
         if a == "--cache" { set clean_cache = true }
         if a == "--all" || a == "-A" { set clean_all = true }
+        if a == "--global" { set clean_global = true }
         set i += 1
+    }
+
+    if clean_global {
+        use util::rm_RF(util::owl_home() + "/cache")
+        use util::rm_RF(util::owl_home() + "/modules")
+        use dasu("cleaned global caches")
+        return
     }
 
     if !clean_bin && !clean_cache && !clean_all {

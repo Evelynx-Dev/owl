@@ -14,6 +14,9 @@ load lockfile
 load dload
 load install
 load export
+load gc
+load tree
+load profile
 
 extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
@@ -110,6 +113,10 @@ pub fn main: () {
     set a_clean = args
     set a_test = args
     set a_load = args
+    set a_export = args
+    set a_gc = args
+    set a_tree = args
+    set a_profile = args
 
     if cmd == "-T" || cmd == "test" {
         set out = proc::run("mire test " + collect_test_flags(a_test))
@@ -174,7 +181,22 @@ pub fn main: () {
     }
 
     if cmd == "-e" || cmd == "export" {
-        export::cmd_export(args)
+        export::cmd_export(a_export)
+        return
+    }
+
+    if cmd == "gc" {
+        gc::cmd_gc(a_gc)
+        return
+    }
+
+    if cmd == "tree" {
+        tree::cmd_tree(a_tree)
+        return
+    }
+
+    if cmd == "profile" {
+        profile::cmd_profile(a_profile)
         return
     }
 

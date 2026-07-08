@@ -41,6 +41,27 @@ pub fn toml_get: (file :str section :str key :str) :str {
     return ""
 }
 
+pub fn toml_get_from_string: (content :str section :str key :str) :str {
+    set section_marker = "[" + section + "]"
+    set section_start = strings::index_of(content section_marker)
+    if section_start < 0 { return "" }
+
+    set key_with_space = "\n" + key + " ="
+    set key_pos1 = strings::index_of(content key_with_space)
+    if key_pos1 >= 0 {
+        set val_start = key_pos1 + len(key_with_space)
+        return toml_extract_val(content val_start)
+    }
+
+    set key_no_space = "\n" + key + "="
+    set key_pos2 = strings::index_of(content key_no_space)
+    if key_pos2 >= 0 {
+        set val_start = key_pos2 + len(key_no_space)
+        return toml_extract_val(content val_start)
+    }
+    return ""
+}
+
 /! Filesystem operations !/
 pub fn mkdir_p: (path :str) {
     use proc::run("mkdir -p \"" + path + "\"")
@@ -117,6 +138,10 @@ pub fn owl_home_cache_tarballs: () :str {
     return owl_home() + "/cache/tarballs"
 }
 
+pub fn owl_home_cache_resolution: () :str {
+    return owl_home() + "/cache/resolution.toml"
+}
+
 pub fn owl_home_keys: () :str {
     return owl_home() + "/keys"
 }
@@ -126,6 +151,7 @@ pub fn ensure_owl_home: () {
     use mkdir_p(owl_home_lib())
     use mkdir_p(owl_home_cache_tarballs())
     use mkdir_p(owl_home_keys())
+    use mkdir_p(owl_home() + "/cache")
 }
 
 /! Version and compiler info !/

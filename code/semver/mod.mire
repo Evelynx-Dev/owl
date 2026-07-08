@@ -207,6 +207,9 @@ pub fn extract_versions: (content :&str name :&str) :str {
 }
 
 pub fn resolve_from_registry: (name :&str constraint :&str) :str {
+    set cached = get_cached_resolution(name constraint)
+    if cached != "" { return cached }
+
     set reg_dir = util::owl_home_registries()
     set reg_list = util::trim(proc::run("ls \"" + reg_dir + "\" 2>/dev/null || true"))
     if reg_list == "" { return "" }
@@ -230,7 +233,11 @@ pub fn resolve_from_registry: (name :&str constraint :&str) :str {
     }
 
     if all_versions == "" { return "" }
-    return best_match(all_versions constraint)
+    set result = best_match(all_versions constraint)
+    if result != "" {
+        cache_resolution(name constraint result)
+    }
+    return result
 }
 
 pub fn check_version: (name :&str constraint :&str) {
@@ -242,4 +249,31 @@ pub fn check_version: (name :&str constraint :&str) {
     } else {
         use dasu("  resolved " + n + " " + c + " -> " + resolved)
     }
+}
+
+pub fn cache_resolution: (name :&str constraint :&str version :&str) {
+    set cache_file = util::owl_home_cache_resolution()
+    set n = util::trim(name)
+    set c = util::trim(constraint)
+    set v = util::trim(version)
+    if n == "" || c == "" { return }
+    set entry = n + "|" + c + "=\"" + v + "\"\n"
+    use fs_write(cache_file entry)
+}
+
+pub fn get_cached_resolution: (name :&str constraint :&str) :str {
+    set cache_file = util::owl_home_cache_resolution()
+    if !fs_exists(cache_file) { return "" }
+    set content = fs::read(cache_file)
+    set n = util::trim(name)
+    set c = util::trim(constraint)
+    set prefix = n + "|" + c + "="
+    set pos = strings::index_of(content prefix)
+    if pos < 0 { return "" }
+    set after = strings::substr(content pos + len(prefix) 9999)
+    if !util::startswith(after "\"") { return "" }
+    set rest = strings::substr(after 1 9999)
+    set endq = strings::index_of(rest "\"")
+    if endq < 0 { return "" }
+    return strings::substr(rest 0 endq)
 }
