@@ -1,5 +1,36 @@
 # Owl Changelog
 
+## [0.23.0] - 2026-07-08
+
+### CLI cleanup — command consolidation
+
+**Renames:**
+- `owl -I` / `owl import` → `owl -L` / `owl load` (coherente con `load` de Mire)
+- `owl -Iu <url>` → `owl load --url <url>` / `owl -Lu <url>` (leer registros)
+- `owl -Lu` expande automáticamente a `owl -L -u` (sin hardcodeo)
+
+**Removed (duplicados):**
+- `owl reg` / `owl registry` — eliminado, reemplazado por `owl load --url`
+- `owl -I` / `owl import` — eliminado, reemplazado por `owl load`
+- `owl -Iu` — eliminado, reemplazado por `owl load --url`
+- `code/import/` module — eliminado, reemplazado por `code/load/`
+
+**Added short flags:**
+- `-R` → run (antes solo `run`)
+- `-K` → check (antes solo `check`)
+- `-Q` → info (antes solo `info`)
+
+**Help:**
+- Rediseñado: organizado por categorías (Build, Project, Package)
+- Sin referencias a "Phase X"
+- Lista todos los comandos con short flags
+
+**Files:**
+- `code/main.mire`
+- `code/load/mod.mire` (new, replaces `code/import/`)
+- `code/ui/mod.mire`
+- `owl.toml`
+
 ## [0.22.0] - 2026-07-08
 
 ### Phase 14 — Publication (`owl -e`)

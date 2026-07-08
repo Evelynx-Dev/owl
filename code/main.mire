@@ -11,7 +11,7 @@ load ui
 load deps
 load args
 load lockfile
-load import
+load dload
 load install
 load export
 
@@ -109,8 +109,7 @@ pub fn main: () {
     set a_info = args
     set a_clean = args
     set a_test = args
-    set a_registry = args
-    set a_import = args
+    set a_load = args
 
     if cmd == "-T" || cmd == "test" {
         set out = proc::run("mire test " + collect_test_flags(a_test))
@@ -123,7 +122,7 @@ pub fn main: () {
         return
     }
 
-    if cmd == "run" {
+    if cmd == "run" || cmd == "-R" {
         build::compile_pipeline(a_run true)
         return
     }
@@ -137,34 +136,29 @@ pub fn main: () {
         return
     }
 
-    if cmd == "checkup" {
-        check::cmd_checkup(a_checkup)
-        return
-    }
-
-    if cmd == "check" {
-        check::cmd_check(a_check)
-        return
-    }
-
-    if cmd == "info" {
-        info::cmd_info(a_info)
-        return
-    }
-
     if cmd == "-C" || cmd == "clean" {
         info::cmd_clean(a_clean)
         return
     }
 
-    if cmd == "reg" || cmd == "registry" {
-        registry::cmd_registry(a_registry)
+    if cmd == "checkup" {
+        check::cmd_checkup(a_checkup)
+        return
+    }
+
+    if cmd == "check" || cmd == "-K" {
+        check::cmd_check(a_check)
+        return
+    }
+
+    if cmd == "info" || cmd == "-Q" {
+        info::cmd_info(a_info)
         return
     }
 
     if cmd == "install" || cmd == "-S" {
-        set name_arg = args::get_positional(a_import 2)
-        set ver_arg = args::get_positional(a_import 3) :str mut
+        set name_arg = args::get_positional(a_load 2)
+        set ver_arg = args::get_positional(a_load 3) :str mut
         if name_arg == "" {
             use dasu("Usage: owl install <name> [version]")
             return
@@ -174,8 +168,8 @@ pub fn main: () {
         return
     }
 
-    if cmd == "import" || cmd == "-I" {
-        import::cmd_import(a_import)
+    if cmd == "load" || cmd == "-L" {
+        dload::cmd_load(a_load)
         return
     }
 
@@ -184,5 +178,5 @@ pub fn main: () {
         return
     }
 
-    use dasu("not available in Phase 1 - coming in a later release")
+    use dasu("use 'owl help' for available commands")
 }

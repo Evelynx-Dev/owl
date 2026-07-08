@@ -1,11 +1,25 @@
-module import
+module dload
 load util
+load registry
+load deps
+load args
 
-pub fn cmd_import: (args :vec[str]) {
+pub fn cmd_load_url: (args :vec[str]) {
+    set url = args::get_positional(args 1)
+    if url == "" {
+        use dasu("usage: owl load --url <url>")
+        use dasu("       owl -L -u <url>")
+        use dasu("       owl -Lu <url>")
+        return
+    }
+    registry::cmd_registry_add(url)
+}
+
+pub fn cmd_load_dep: (args :vec[str]) {
     set n = rt_vec_len(args)
     if n < 3 {
-        use dasu("usage: owl import <name> [--path <path>]")
-        use dasu("       owl -I <name> [--path <path>]")
+        use dasu("usage: owl load <name> [--path <path>]")
+        use dasu("       owl -L <name> [--path <path>]")
         return
     }
 
@@ -70,7 +84,7 @@ pub fn cmd_import: (args :vec[str]) {
         set dep_line = name_arg + " = { path = \"" + path_val + "\" }"
         set new_c = before + "\n" + dep_line + after
         use fs_write("owl.toml" new_c)
-        set ok_msg = "imported '" + name_arg + "' from " + path_val
+        set ok_msg = "loaded '" + name_arg + "' from " + path_val
         use dasu(ok_msg)
     } else {
         set owl_home = util::owl_home()
@@ -87,7 +101,17 @@ pub fn cmd_import: (args :vec[str]) {
         set dep_line = name_arg + " = { path = \"" + real_path + "\", version = \"" + version + "\" }"
         set new_c = before + "\n" + dep_line + after
         use fs_write("owl.toml" new_c)
-        set ok_msg = "imported '" + name_arg + "' v" + version + " from cache"
+        set ok_msg = "loaded '" + name_arg + "' v" + version + " from cache"
         use dasu(ok_msg)
+    }
+}
+
+pub fn cmd_load: (args :vec[str]) {
+    set has_u = args::has_flag(args "-u")
+    set has_url = args::has_flag(args "--url")
+    if has_u || has_url {
+        cmd_load_url(args)
+    } else {
+        cmd_load_dep(args)
     }
 }
