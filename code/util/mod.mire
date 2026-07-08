@@ -142,6 +142,18 @@ pub fn compiler_version: () :str {
     return "Avenys (unknown)"
 }
 
+pub fn abi_version: () :str {
+    return "1"
+}
+
+pub fn language_version: () :str {
+    set v = compiler_version()
+    if v == "" { return "mire" }
+    set sp = strings::index_of(v "v")
+    if sp >= 0 { return "mire " + strings::substr(v sp + 1 len(v) - sp - 1) }
+    return v
+}
+
 /! Project config !/
 pub fn has_project: () :bool {
     return fs_exists("owl.toml")

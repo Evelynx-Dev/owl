@@ -270,7 +270,48 @@ pub fn cmd_check: (args :vec[str]) {
     }
 
     use dasu("")
+
     if found_any {
-        use dasu("  integrity checks: pending (requires file manager)")
+        use dasu("  ABI compatibility ---")
+        set pos2 = 0 :i64 mut
+        set nlen2 = len(names)
+        while pos2 < nlen2 {
+            set nl2 = strings::index_of(strings::substr(names pos2 nlen2 - pos2) "\n")
+            set key2 = "" :str mut
+            if nl2 < 0 {
+                set key2 = util::trim(strings::substr(names pos2 nlen2 - pos2))
+                set pos2 = nlen2
+            } else {
+                set key2 = util::trim(strings::substr(names pos2 nl2))
+                set pos2 = pos2 + nl2 + 1
+            }
+            if key2 != "" {
+                set k_disp = key2 :str
+                set pv = deps::get_dep_field(key2 "path")
+                if pv != "" && fs_exists(pv) {
+                    set mt = pv + "/meta.toml"
+                    if fs_exists(mt) {
+                        set mt_c = mt :str
+                        set mt_a = mt :str
+                        set mt_l = mt :str
+                        set mc = util::toml_get(mt_c "package" "compiler")
+                        set ma = util::toml_get(mt_a "package" "abi")
+                        set ml = util::toml_get(mt_l "package" "language")
+                        set abi_msg = "    " + k_disp + ": " :str mut
+                        if mc != "" { set abi_msg = abi_msg + "compiler=" + mc }
+                        if ma != "" {
+                            if mc != "" { set abi_msg = abi_msg + ", " }
+                            set abi_msg = abi_msg + "abi=" + ma
+                        }
+                        if ml != "" {
+                            if mc != "" || ma != "" { set abi_msg = abi_msg + ", " }
+                            set abi_msg = abi_msg + "lang=" + ml
+                        }
+                        use dasu(abi_msg)
+                    }
+                }
+            }
+        }
     }
+
 }

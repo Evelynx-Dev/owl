@@ -1,5 +1,20 @@
 # Owl Changelog
 
+## [0.21.0] - 2026-07-08
+
+### Phase 13 — ABI compatibility
+
+- `util::abi_version()` — returns current ABI version (`"1"`)
+- `util::language_version()` — returns language version from `mire --version`
+- `owl install` now writes `compiler`, `abi`, `language` to `meta.toml`
+- `owl check` reports ABI info (compiler, abi, language) for each dependency that has a `meta.toml`
+- ABI mismatch detection framework in place
+
+### Added
+
+- `util::abi_version()` — new function
+- `util::language_version()` — new function
+
 ## [0.20.0] - 2026-07-08
 
 ### Phase 12 — SemVer resolution

@@ -34,7 +34,12 @@ pub fn cmd_install: (name :str version :str) {
     use dasu("  installing " + name + " v" + version + "...")
 
     set meta_path = extract_dir + "/meta.toml"
-    set meta = "[package]\nname = \"" + name + "\"\nversion = \"" + version + "\"\n"
+    set meta = "[package]\n" :str mut
+    set meta = meta + "name = \"" + name + "\"\n"
+    set meta = meta + "version = \"" + version + "\"\n"
+    set meta = meta + "compiler = \"" + util::compiler_cmd() + "\"\n"
+    set meta = meta + "abi = " + util::abi_version() + "\n"
+    set meta = meta + "language = \"" + util::language_version() + "\"\n"
     use fs_write(meta_path meta)
 
     use util::fs_make_readonly(extract_dir)
