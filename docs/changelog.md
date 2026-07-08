@@ -2,36 +2,36 @@
 
 ## [0.24.1] - 2026-07-08
 
-### Phase 17 — Registry Protocol specification
+### Registry Protocol specification
 
-- `REGISTRY_PROTOCOL_v1.md` — especificación completa del protocolo de
-  registro v1. Documenta `registry.json`, `index.toml`, `publish.toml`,
-  `meta.toml`, esquema de firma Ed25519, doble firma, flujo de instalación,
-  TOFU, versionado de protocolo, múltiples registros.
+- `REGISTRY_PROTOCOL_v1.md` — complete, self-contained spec of the v1
+  registry protocol. Documents `registry.json`, `index.toml`, `publish.toml`,
+  `meta.toml`, Ed25519 signature scheme, dual-signature model, install flow,
+  TOFU, protocol versioning, and multi-registry priority.
 
 ## [0.24.0] - 2026-07-08
 
-### Phase 15 — Performance: Resolution cache
+### Performance: Resolution cache
 
-- `semver::get_cached_resolution(name, constraint)` — busca en `~/.owl/cache/resolution.toml`
-- `semver::cache_resolution(name, constraint, version)` — escribe en caché
-- `resolve_from_registry()` consulta caché antes de registry, escribe en miss
-- `util::toml_get_from_string(content, section, key)` — parsea TOML desde string
+- `semver::get_cached_resolution(name, constraint)` — looks up `~/.owl/cache/resolution.toml`
+- `semver::cache_resolution(name, constraint, version)` — writes to cache
+- `resolve_from_registry()` checks cache first, writes on miss
+- `util::toml_get_from_string(content, section, key)` — parse TOML from a string
 - `util::owl_home_cache_resolution()` — path helper: `~/.owl/cache/resolution.toml`
-- `util::ensure_owl_home()` ahora crea `~/.owl/cache/`
+- `util::ensure_owl_home()` now creates `~/.owl/cache/`
 
-### Phase 16 — Maintenance tools
+### Maintenance tools
 
-- **`owl gc`** — garbage collect: escanea `~/.owl/lib/`, remueve versiones huérfanas no referenciadas en ningún `owl.lock`
-- **`owl tree [--all]`** — árbol de dependencias: plano por defecto, `--all` muestra recursivo
-- **`owl profile [--json]`** — métricas de build: tamaño binario, compilador, último build, contador de builds
-- **`owl clean --global`** — limpia `~/.owl/cache/` y `~/.owl/modules/`
-- `deps::get_dep_names_from(toml_file)` — obtiene nombres de dependencias de cualquier owl.toml
-- `deps::get_dep_field_from(toml_file, dep_name, field)` — obtiene campo específico de cualquier owl.toml
+- **`owl gc`** — garbage collect: scans `~/.owl/lib/`, removes orphaned versions not referenced in any `owl.lock`
+- **`owl tree [--all]`** — dependency tree: flat by default, `--all` shows recursive
+- **`owl profile [--json]`** — build metrics: binary size, compiler, last build, build count
+- **`owl clean --global`** — cleans `~/.owl/cache/` and `~/.owl/modules/`
+- `deps::get_dep_names_from(toml_file)` — get dependency names from any owl.toml
+- `deps::get_dep_field_from(toml_file, dep_name, field)` — get a specific dep field from any owl.toml
 
 ### Fixed
 
-- **Test runner symlink bug**: el descubrimiento de tests (`walkdir`) seguía symlinks, descubriendo `tests/lib/mod.mire` (symlink a `testlib/mod.mire`) como archivo de test. El archivo tiene `module`/`load` top-level que no son válidos dentro de `pub fn main: () { ... }`. Fix: `walkdir` salta entradas symlink. (Avenys `src/main.rs`)
+- **Test runner symlink bug**: test discovery (`walkdir`) followed symlinks, picking up `tests/lib/mod.mire` (symlink to `testlib/mod.mire`) as a test file. That file has `module`/`load` at the top level, which are invalid inside `pub fn main: () { ... }`. Fix: `walkdir` skips symlinks. (Avenys `src/main.rs`)
 
 ### Added
 
@@ -44,25 +44,25 @@
 ### CLI cleanup — command consolidation
 
 **Renames:**
-- `owl -I` / `owl import` → `owl -L` / `owl load` (coherente con `load` de Mire)
-- `owl -Iu <url>` → `owl load --url <url>` / `owl -Lu <url>` (leer registros)
-- `owl -Lu` expande automáticamente a `owl -L -u` (sin hardcodeo)
+- `owl -I` / `owl import` → `owl -L` / `owl load` (consistent with Mire's `load`)
+- `owl -Iu <url>` → `owl load --url <url>` / `owl -Lu <url>` (read registries)
+- `owl -Lu` auto-expands to `owl -L -u` (no hardcoding)
 
-**Removed (duplicados):**
-- `owl reg` / `owl registry` — eliminado, reemplazado por `owl load --url`
-- `owl -I` / `owl import` — eliminado, reemplazado por `owl load`
-- `owl -Iu` — eliminado, reemplazado por `owl load --url`
-- `code/import/` module — eliminado, reemplazado por `code/load/`
+**Removed (duplicates):**
+- `owl reg` / `owl registry` — removed, replaced by `owl load --url`
+- `owl -I` / `owl import` — removed, replaced by `owl load`
+- `owl -Iu` — removed, replaced by `owl load --url`
+- `code/import/` module — removed, replaced by `code/load/`
 
 **Added short flags:**
-- `-R` → run (antes solo `run`)
-- `-K` → check (antes solo `check`)
-- `-Q` → info (antes solo `info`)
+- `-R` → run (previously only `run`)
+- `-K` → check (previously only `check`)
+- `-Q` → info (previously only `info`)
 
 **Help:**
-- Rediseñado: organizado por categorías (Build, Project, Package)
-- Sin referencias a "Phase X"
-- Lista todos los comandos con short flags
+- Redesigned: organized by categories (Build, Project, Package)
+- No more "Phase X" references
+- Lists all commands with short flags
 
 **Files:**
 - `code/main.mire`
@@ -72,7 +72,7 @@
 
 ## [0.22.0] - 2026-07-08
 
-### Phase 14 — Publication (`owl -e`)
+### Publication (`owl -e`)
 
 - `owl -e` / `owl export`: validate, package, and sign a project for publication
 - `owl -e --check`: validate project (required fields, sources, tool availability)
@@ -90,7 +90,7 @@
 
 ## [0.21.0] - 2026-07-08
 
-### Phase 13 — ABI compatibility
+### ABI compatibility
 
 - `util::abi_version()` — returns current ABI version (`"1"`)
 - `util::language_version()` — returns language version from `mire --version`
@@ -105,7 +105,7 @@
 
 ## [0.20.0] - 2026-07-08
 
-### Phase 12 — SemVer resolution
+### SemVer resolution
 
 - `code/semver/mod.mire` — new module for SemVer parsing, matching, and resolution
 - `semver::parse_version(ver)` — normalizes `"1.2"` → `"1.2.0"`
@@ -124,7 +124,7 @@
 
 ## [0.19.0] - 2026-07-08
 
-### Phase 7 — Registries via `-Iu` / `--url`
+### Registries via `-Iu` / `--url`
 
 - `owl -Iu <url>`: add registry from URL
 - `owl -Iu list`: list registries
@@ -136,20 +136,20 @@
 - `cmd_registry_remove_by_index()` for numeric removal
 - `util::string_to_i64()` and `util::i64_to_string()` helpers added
 
-### Phase 8 — Combined short flags
+### Combined short flags
 
 - `-rvB` expands to `-r -v -B` before command dispatch
 - `find_cmd_index()` helper finds first non-flag argument
 - Works with all commands: `owl -rvB build`, etc.
 
-### Phase 11 — `owl install` (stub)
+### `owl install` (stub)
 
 - `owl install <name> [version]`: install a package
 - `owl -S <name>`: same
 - Framework in place for SHA-256 and Ed25519 verification
 - `code/install/mod.mire`: new install module
 
-### Phase 9 — Avenys CLI cleanup
+### Avenys CLI cleanup
 
 - Removed `mire validate` command
 - Removed `mire owl add|remove` commands
@@ -164,7 +164,7 @@
 
 ## [0.18.0] - 2026-07-07
 
-### Phase 3 — Lockfile (complete)
+### Lockfile
 
 - `owl.lock` generated on first `owl build` or `owl run`
 - Lockfile format: `[[package]]` entries with name, version, path, registry, abi
@@ -174,7 +174,7 @@
 - `owl build` / `owl run` without lockfile → generates lockfile automatically
 - **Sync check**: detects when owl.toml has deps not in lockfile (count mismatch)
 
-### Phase 4 — `owl import` / `owl -I`
+### `owl import` / `owl -I`
 
 - `owl import <name>`: imports from `~/.owl/modules/<name>` cache
 - `owl -I <name>`: same as `owl import`
