@@ -1,6 +1,6 @@
 [project]
 name = "owl"
-version = "0.17.1"
+version = "0.18.0"
 description = "Package and project manager for the Mire (Avenys) language"
 entry = "code/main.mire"
 

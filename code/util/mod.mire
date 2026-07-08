@@ -185,3 +185,6 @@ pub fn endswith: (s :&str, suffix :&str) :bool { return strings::endswith(s suff
 pub fn substr: (s :&str, start :i64, len :i64) :str { return strings::substr(s start len) }
 pub fn replace: (s :&str, old :&str, new :&str) :str { return strings::replace(s old new) }
 pub fn list_get: (list :&vec[str], index :i64) :str { return lists::get_str(list index) }
+
+pub fn string_to_i64: (s :str) :i64 { return rt_string_to_i64(s) }
+pub fn i64_to_string: (v :i64) :str { return rt_i64_to_string(v) }

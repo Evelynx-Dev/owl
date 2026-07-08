@@ -126,6 +126,146 @@ pub fn cmd_registry_remove: (name :str) {
     use dasu("  [OK]    registry '" + name + "' removed")
 }
 
+pub fn cmd_registry_sync_one: (name :str, reg_path :str) {
+    if !fs_exists(reg_path + "/registry.json") {
+        use dasu("    [SKIP]  no registry.json")
+        return
+    }
+
+    set content = fs::read(reg_path + "/registry.json")
+    set url = util::json_get_str(content "url") :str mut
+    if url == "" {
+        set url = util::json_get_str(content "name")
+    }
+
+    set tmp = crypto::crypto_tempdir("owl-sync")
+    if tmp == "" {
+        use dasu("    [FAIL]  could not create temp directory")
+        return
+    }
+
+    use proc::run("curl -sL -o \"" + tmp + "/index.toml\" \"" + url + "/index.toml\" 2>/dev/null || true")
+    set index_content = util::trim(fs::read(tmp + "/index.toml"))
+
+    if index_content == "" {
+        use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
+        use dasu("    [FAIL]  could not fetch index.toml from " + url)
+        return
+    }
+
+    use fs_write(reg_path + "/index.toml" index_content)
+    use proc::run("printf '%s' \"$(date +%s)\" > \"" + reg_path + "/last_sync\" 2>/dev/null || true")
+    use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
+
+    use dasu("    [OK]    " + name + " synced")
+}
+
+pub fn cmd_registry_sync: () {
+    set reg_dir = util::owl_home_registries()
+    if !fs_exists(reg_dir) {
+        use dasu("  no registries configured")
+        return
+    }
+
+    set out = util::trim(proc::run("ls -1 \"" + reg_dir + "\" 2>/dev/null || true"))
+    if out == "" {
+        use dasu("  no registries configured")
+        return
+    }
+    set entries = util::split(out "\n")
+    set ni = len(entries)
+    set found = 0 :i64 mut
+    set i = 0 :i64 mut
+    while i < ni {
+        set entry = util::trim(util::list_get(entries i))
+        if entry != "" {
+            set reg_path = reg_dir + "/" + entry
+            if fs_exists(reg_path + "/registry.json") && !fs_exists(reg_path + "/.disabled") {
+                set found += 1
+                use dasu("  syncing " + entry + "...")
+                cmd_registry_sync_one(entry reg_path)
+            }
+        }
+        set i += 1
+    }
+
+    if found == 0 {
+        use dasu("  no enabled registries")
+    }
+}
+
+pub fn cmd_registry_remove_by_index: (index :i64) {
+    set reg_dir = util::owl_home_registries()
+    if !fs_exists(reg_dir) {
+        use dasu("  [FAIL]  no registries configured")
+        return
+    }
+
+    set out = util::trim(proc::run("ls -1 \"" + reg_dir + "\" 2>/dev/null || true"))
+    if out == "" {
+        use dasu("  [FAIL]  no registries configured")
+        return
+    }
+    set entries = util::split(out "\n")
+    set ni = len(entries)
+    if index < 0 || index >= ni {
+        use dasu("  [FAIL]  registry index " + util::i64_to_string(index) + " out of range")
+        return
+    }
+
+    set i = 0 :i64 mut
+    set found = 0 :i64 mut
+    while i < ni {
+        set entry = util::trim(util::list_get(entries i))
+        if entry != "" {
+            set reg_path = reg_dir + "/" + entry
+            if fs_exists(reg_path + "/registry.json") {
+                if found == index {
+                    cmd_registry_remove(entry)
+                    return
+                }
+                set found += 1
+            }
+        }
+        set i += 1
+    }
+
+    use dasu("  [FAIL]  registry at index " + util::i64_to_string(index) + " not found")
+}
+
+pub fn cmd_registry_iu: (args :&vec[str]) {
+    set n = rt_vec_len(args)
+    if n < 2 {
+        use dasu("Usage: owl -Iu <url>|list|remove <n>")
+        return
+    }
+
+    set subcmd = rt_vec_get_str(args 2)
+
+    if subcmd == "list" {
+        cmd_registry_list()
+        return
+    }
+
+    if subcmd == "remove" {
+        if n < 4 {
+            use dasu("Usage: owl -Iu remove <n>")
+            return
+        }
+        set idx_str = rt_vec_get_str(args 3)
+        set idx = util::string_to_i64(idx_str)
+        cmd_registry_remove_by_index(idx)
+        return
+    }
+
+    if util::startswith(subcmd "http://") || util::startswith(subcmd "https://") {
+        cmd_registry_add(subcmd)
+        return
+    }
+
+    use dasu("Usage: owl -Iu <url>|list|remove <n>")
+}
+
 pub fn cmd_registry: (args :vec[str]) {
     set n = rt_vec_len(args)
     if n < 3 {
@@ -215,6 +355,11 @@ pub fn cmd_registry: (args :vec[str]) {
         }
         use fs_write(reg_path + "/.priority" util::trim(priority) + "\n")
         use dasu("  [OK]    registry '" + name + "' priority set to " + util::trim(priority))
+        return
+    }
+
+    if subcmd == "sync" {
+        cmd_registry_sync()
         return
     }
 

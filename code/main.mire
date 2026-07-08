@@ -52,6 +52,11 @@ pub fn main: () {
         return
     }
 
+    if cmd == "-Iu" {
+        registry::cmd_registry_iu(args)
+        return
+    }
+
     set a_build = args
     set a_run = args
     set a_new = args
