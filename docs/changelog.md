@@ -1,5 +1,24 @@
 # Owl Changelog
 
+## [0.20.0] - 2026-07-08
+
+### Phase 12 — SemVer resolution
+
+- `code/semver/mod.mire` — new module for SemVer parsing, matching, and resolution
+- `semver::parse_version(ver)` — normalizes `"1.2"` → `"1.2.0"`
+- `semver::compare_versions(a, b)` — compares two semvers (-1, 0, 1)
+- `semver::constraint_matches(version, constraint)` — checks `^1.2`, `~1.2.3`, `>=1.0`, `>1.0`, `<2.0`, `<=2.0`, `*`, `latest`, exact
+- `semver::best_match(versions, constraint)` — finds highest matching version from space-separated list
+- `semver::resolve_from_registry(name, constraint)` — queries all registries' `index.toml`, extracts versions, resolves best match
+- Registry index format: `[[package]]` entries with `name` and `version` fields
+- `owl install` now resolves version constraint via registries before installing
+- Conflict detection framework in place
+
+### Added
+
+- `code/semver/mod.mire` — 173 lines
+- `owl.toml` dependency: `semver = { path = "./code/semver" }`
+
 ## [0.19.0] - 2026-07-08
 
 ### Phase 7 — Registries via `-Iu` / `--url`

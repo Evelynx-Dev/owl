@@ -2,6 +2,7 @@ module install
 load util
 load crypto
 load trust
+load semver
 
 pub fn cmd_install: (name :str version :str) {
     if !util::has_project() {
@@ -14,16 +15,21 @@ pub fn cmd_install: (name :str version :str) {
         return
     }
 
+    if version == "" || version == "*" {
+        set version = "latest"
+    }
+
+    set resolved = semver::resolve_from_registry(name version)
+    if resolved != "" {
+        set version = resolved
+    }
+
     set lib_dir = util::owl_home_lib()
     set lib_dir_copy = lib_dir :str
     use util::mkdir_p(lib_dir_copy)
 
     set dirSlash = lib_dir + "/"
     set extract_dir = dirSlash + name
-
-    if version == "" || version == "*" {
-        set version = "latest"
-    }
 
     use dasu("  installing " + name + " v" + version + "...")
 
