@@ -73,7 +73,7 @@ pub fn compile_pipeline: (args :vec[str] is_run :bool) {
 
     set entry = util::config_required("project" "entry")
     set file = entry :str mut
-    if cli_file != "" { set file = cli_file }
+    if cli_file != "" && fs_exists(cli_file) { set file = cli_file }
 
     set profile = util::config_required("build" "profile") :str mut
     set opt = util::config_required("build" "opt-level") :str mut
@@ -111,7 +111,7 @@ pub fn compile_pipeline: (args :vec[str] is_run :bool) {
     }
 
     set name = entry :str mut
-    if cli_file != "" { set name = cli_file }
+    if cli_file != "" && (fs_exists(cli_file) || util::endswith(cli_file ".mire")) { set name = cli_file }
     if util::endswith(name ".mire") {
         set name = util::replace(name ".mire" "")
     }

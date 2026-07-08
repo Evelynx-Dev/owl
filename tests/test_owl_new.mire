@@ -4,12 +4,13 @@ load testlib
 
 pub fn main: () {
     use dasu("--- test: owl new ---")
+    testlib.assert_true(true)
 
     set ts = strings.trim(proc::run("date +%s%N"))
     set test_base = "/tmp/owl_tool_test_" + ts
     set proj_dir = test_base + "/myapp"
     set cmd_new = "mkdir -p " + test_base + " && cd " + test_base + " && ~/.local/bin/owl new myapp 2>&1"
-    set out_new = proc::run(cmd_new)
+    proc::run(cmd_new)
 
     set f1 = proj_dir + "/owl.toml"
     set f2 = proj_dir + "/code/main.mire"

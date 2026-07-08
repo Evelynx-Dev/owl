@@ -5,10 +5,15 @@ load deps
 load args
 
 pub fn cmd_load_url: (args :vec[str]) {
-    set url = args::get_positional(args 1)
+    set url = args::get_flag_value(args "--url") :str mut
+    if url == "" {
+        set url = args::get_flag_value(args "-u")
+    }
+    if url == "" {
+        set url = args::get_positional(args 1)
+    }
     if url == "" {
         use dasu("usage: owl load --url <url>")
-        use dasu("       owl -L -u <url>")
         use dasu("       owl -Lu <url>")
         return
     }

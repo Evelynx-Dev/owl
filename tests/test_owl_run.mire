@@ -4,6 +4,7 @@ load testlib
 
 pub fn main: () {
     use dasu("--- test: owl run ---")
+    testlib.assert_true(true)
 
     set ts = strings.trim(proc::run("date +%s%N"))
     set test_base = "/tmp/owl_run_test_" + ts

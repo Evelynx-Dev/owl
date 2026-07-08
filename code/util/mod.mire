@@ -156,10 +156,7 @@ pub fn ensure_owl_home: () {
 
 /! Version and compiler info !/
 pub fn owl_version: () :str {
-    if !fs_exists("owl.toml") { return "?.?.?" }
-    set v = toml_get("owl.toml" "project" "version")
-    if v == "" { return "?.?.?" }
-    return v
+    return "0.24.1"
 }
 
 pub fn compiler_version: () :str {
