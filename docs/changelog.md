@@ -1,5 +1,14 @@
 # Owl Changelog
 
+## [0.24.1] - 2026-07-08
+
+### Phase 17 — Registry Protocol specification
+
+- `REGISTRY_PROTOCOL_v1.md` — especificación completa del protocolo de
+  registro v1. Documenta `registry.json`, `index.toml`, `publish.toml`,
+  `meta.toml`, esquema de firma Ed25519, doble firma, flujo de instalación,
+  TOFU, versionado de protocolo, múltiples registros.
+
 ## [0.24.0] - 2026-07-08
 
 ### Phase 15 — Performance: Resolution cache
