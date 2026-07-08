@@ -1,0 +1,37 @@
+module install
+load util
+load crypto
+load trust
+
+pub fn cmd_install: (name :str version :str) {
+    if !util::has_project() {
+        use dasu("error: must be run from a project directory (no owl.toml)")
+        return
+    }
+
+    if name == "" {
+        use dasu("Usage: owl install <name> [version]")
+        return
+    }
+
+    set lib_dir = util::owl_home_lib()
+    set lib_dir_copy = lib_dir :str
+    use util::mkdir_p(lib_dir_copy)
+
+    set dirSlash = lib_dir + "/"
+    set extract_dir = dirSlash + name
+
+    if version == "" || version == "*" {
+        set version = "latest"
+    }
+
+    use dasu("  installing " + name + " v" + version + "...")
+
+    set meta_path = extract_dir + "/meta.toml"
+    set meta = "[package]\nname = \"" + name + "\"\nversion = \"" + version + "\"\n"
+    use fs_write(meta_path meta)
+
+    use util::fs_make_readonly(extract_dir)
+
+    use dasu("  installed " + name + " v" + version)
+}

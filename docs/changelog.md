@@ -1,5 +1,45 @@
 # Owl Changelog
 
+## [0.19.0] - 2026-07-08
+
+### Phase 7 — Registries via `-Iu` / `--url`
+
+- `owl -Iu <url>`: add registry from URL
+- `owl -Iu list`: list registries
+- `owl -Iu remove <n>`: remove registry by index
+- `owl reg|registry sync`: sync all enabled registries
+- `owl reg|registry enable/disable/priority`: manage registries
+- `cmd_registry_iu()` handles `-Iu` flag dispatch
+- `cmd_registry_sync()` + `cmd_registry_sync_one()` for sync
+- `cmd_registry_remove_by_index()` for numeric removal
+- `util::string_to_i64()` and `util::i64_to_string()` helpers added
+
+### Phase 8 — Combined short flags
+
+- `-rvB` expands to `-r -v -B` before command dispatch
+- `find_cmd_index()` helper finds first non-flag argument
+- Works with all commands: `owl -rvB build`, etc.
+
+### Phase 11 — `owl install` (stub)
+
+- `owl install <name> [version]`: install a package
+- `owl -S <name>`: same
+- Framework in place for SHA-256 and Ed25519 verification
+- `code/install/mod.mire`: new install module
+
+### Phase 9 — Avenys CLI cleanup
+
+- Removed `mire validate` command
+- Removed `mire owl add|remove` commands
+- Avenys now only has: `run`, `build`, `check`, `debug`, `test`
+
+### Infrastructure
+
+- **Testlib moved**: `tests/lib/mod.mire` -> `testlib/mod.mire`
+  (symlink at `tests/lib` for load compatibility)
+- `tests/lib/mod.mire`: now uses `strings::to_string()` from kioto
+- `util::string_to_i64()` and `util::i64_to_string()` added to util
+
 ## [0.18.0] - 2026-07-07
 
 ### Phase 3 — Lockfile (complete)

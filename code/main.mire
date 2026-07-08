@@ -11,9 +11,49 @@ load deps
 load args
 load lockfile
 load import
+load install
 
 extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
+
+fn expand_short_flags: (args :&vec[str]) :vec[str] {
+    set n = rt_vec_len(args)
+    set result = "" :str mut
+    set i = 0 :i64 mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if i == 0 {
+            set result = a
+        } else {
+            if util::startswith(a "-") && !util::startswith(a "--")
+               && len(a) > 2 {
+                set j = 1 :i64 mut
+                while j < len(a) {
+                    set ch = strings::substr(a j 1)
+                    set result = result + " -" + ch
+                    set j += 1
+                }
+            } else {
+                set result = result + " " + a
+            }
+        }
+        set i += 1
+    }
+    return strings::split(result " ")
+}
+
+fn find_cmd_index: (args :&vec[str]) :i64 {
+    set n = rt_vec_len(args)
+    set i = 1 :i64 mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if !util::startswith(a "-") {
+            return i
+        }
+        set i += 1
+    }
+    return 1
+}
 
 fn collect_test_flags: (args :&vec[str]) :str {
     set n = rt_vec_len(args)
@@ -32,14 +72,16 @@ fn collect_test_flags: (args :&vec[str]) :str {
 }
 
 pub fn main: () {
-    set args = env_args()
+    set raw_args = env_args()
+    set args = expand_short_flags(raw_args)
     set n = rt_vec_len(args)
     if n <= 1 {
         ui::print_help()
         return
     }
 
-    set cmd = rt_vec_get_str(args 1)
+    set cmd_idx = find_cmd_index(args)
+    set cmd = rt_vec_get_str(args cmd_idx)
 
     if cmd == "-V" || cmd == "--version" {
         use dasu("Owl v" + util::owl_version())
@@ -115,6 +157,18 @@ pub fn main: () {
 
     if cmd == "reg" || cmd == "registry" {
         registry::cmd_registry(a_registry)
+        return
+    }
+
+    if cmd == "install" || cmd == "-S" {
+        set name_arg = args::get_positional(a_import 2)
+        set ver_arg = args::get_positional(a_import 3) :str mut
+        if name_arg == "" {
+            use dasu("Usage: owl install <name> [version]")
+            return
+        }
+        if ver_arg == "" { set ver_arg = "*" }
+        install::cmd_install(name_arg ver_arg)
         return
     }
 

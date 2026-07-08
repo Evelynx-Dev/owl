@@ -7,7 +7,18 @@ pub fn compile_pipeline: (args :vec[str] is_run :bool) {
     set is_proj = util::has_project()
 
     set n = rt_vec_len(args)
-    set i = 2 :i64 mut
+    set file_idx = 1 :i64 mut
+    set fi = 1 :i64 mut
+    while fi < n {
+        set fa = rt_vec_get_str(args fi)
+        if !util::startswith(fa "-") {
+            set file_idx = fi
+            set fi = n
+        }
+        set fi += 1
+    }
+
+    set i = 1 :i64 mut
     set cli_file = "" :str mut
     set cli_profile = "" :str mut
     set cli_opt = "" :str mut
@@ -40,8 +51,7 @@ pub fn compile_pipeline: (args :vec[str] is_run :bool) {
 
     if !is_proj {
         if cli_file == "" {
-            if n > 2 { set cli_file = rt_vec_get_str(args 2) }
-            if n > 1 { set cli_file = rt_vec_get_str(args 1) }
+            if file_idx > 0 && file_idx < n { set cli_file = rt_vec_get_str(args file_idx) }
         }
         if cli_file == "" {
             use util::error_line("OWL0002" "no file specified and no owl.toml found")
