@@ -1,5 +1,23 @@
 # Owl Changelog
 
+## [0.22.0] - 2026-07-08
+
+### Phase 14 — Publication (`owl -e`)
+
+- `owl -e` / `owl export`: validate, package, and sign a project for publication
+- `owl -e --check`: validate project (required fields, sources, tool availability)
+- `owl -e --dry-run`: create archive and `publish.toml` without signing
+- Generates `<pkg>-<ver>.tar.zst` archive (tar + zstd)
+- Generates `<pkg>-<ver>.tar.zst.sig` Ed25519 signature
+- Generates `<pkg>-<ver>.pub` public key copy
+- Generates `publish.toml` with package metadata, SHA-256 checksum, public key, and signature
+- Auto-generates Ed25519 keypair at `~/.owl/keys/id_ed25519` on first use
+
+### Added
+
+- `code/export/mod.mire` — new publication module
+- `owl.toml` dependency: `export = { path = "./code/export" }`
+
 ## [0.21.0] - 2026-07-08
 
 ### Phase 13 — ABI compatibility

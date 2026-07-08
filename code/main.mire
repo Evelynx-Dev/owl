@@ -1,4 +1,5 @@
 load kioto
+load semver
 load util
 load crypto
 load trust
@@ -12,6 +13,7 @@ load args
 load lockfile
 load import
 load install
+load export
 
 extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
@@ -174,6 +176,11 @@ pub fn main: () {
 
     if cmd == "import" || cmd == "-I" {
         import::cmd_import(a_import)
+        return
+    }
+
+    if cmd == "-e" || cmd == "export" {
+        export::cmd_export(args)
         return
     }
 

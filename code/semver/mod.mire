@@ -234,10 +234,12 @@ pub fn resolve_from_registry: (name :&str constraint :&str) :str {
 }
 
 pub fn check_version: (name :&str constraint :&str) {
+    set n = util::trim(name)
+    set c = util::trim(constraint)
     set resolved = resolve_from_registry(name constraint)
     if resolved == "" {
-        use dasu("  warning: \"" + name + "\" not found in any registry for constraint \"" + constraint + "\"")
+        use dasu("  warning: \"" + n + "\" not found in any registry for constraint \"" + c + "\"")
     } else {
-        use dasu("  resolved " + name + " " + constraint + " -> " + resolved)
+        use dasu("  resolved " + n + " " + c + " -> " + resolved)
     }
 }

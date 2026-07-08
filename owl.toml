@@ -1,6 +1,6 @@
 [project]
 name = "owl"
-version = "0.21.0"
+version = "0.22.0"
 description = "Package and project manager for the Mire (Avenys) language"
 entry = "code/main.mire"
 
@@ -32,3 +32,4 @@ lockfile = { path = "./code/lockfile" }
 import = { path = "./code/import" }
 install = { path = "./code/install" }
 semver = { path = "./code/semver" }
+export = { path = "./code/export" }
