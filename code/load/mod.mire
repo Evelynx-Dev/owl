@@ -111,12 +111,33 @@ pub fn cmd_load_dep: (args :vec[str]) {
     }
 }
 
+pub fn cmd_load_remove_registry: (args :vec[str]) {
+    set name = args::get_positional(args 2) :str mut
+    if name == "" {
+        set name = args::get_flag_value(args "-r")
+    }
+    if name == "" {
+        set name = args::get_flag_value(args "--remove")
+    }
+    if name == "" {
+        use dasu("usage: owl load -r|--remove <name>")
+        return
+    }
+    registry::cmd_registry_remove(name)
+}
+
 pub fn cmd_load: (args :vec[str]) {
-    set has_u = args::has_flag(args "-u")
-    set has_url = args::has_flag(args "--url")
-    if has_u || has_url {
-        cmd_load_url(args)
-    } else {
-        cmd_load_dep(args)
+    set is_url = args::has_flag(args "-u") || args::has_flag(args "--url")
+    set is_list = args::has_flag(args "-l") || args::has_flag(args "--list")
+    set is_sync = args::has_flag(args "-s") || args::has_flag(args "--sync")
+    set is_rm = args::has_flag(args "-r") || args::has_flag(args "--remove")
+    if is_url { cmd_load_url(args) } else {
+        if is_list { registry::cmd_registry_list() } else {
+            if is_sync { registry::cmd_registry_sync() } else {
+                if is_rm { cmd_load_remove_registry(args) } else {
+                    cmd_load_dep(args)
+                }
+            }
+        }
     }
 }
