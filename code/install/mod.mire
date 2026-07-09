@@ -1,48 +1,117 @@
 module install
 load util
 load crypto
-load trust
 load semver
 
-pub fn cmd_install: (name :str version :str) {
-    if !util::has_project() {
-        use dasu("error: must be run from a project directory (no owl.toml)")
+pub fn cmd_install: (has_l :bool has_t :bool no_verify :bool force :bool target_val :str yes :bool name :str ver :str) {
+    if has_l {
+        cmd_list_packages()
         return
     }
-
-    if name == "" {
-        use dasu("Usage: owl install <name> [version]")
+    set is_empty = len(name) == 0
+    if is_empty {
+        if has_t { use dasu("Usage: owl install -t <name>") } else {
+            if target_val == "d" || target_val == "r" { cmd_target_install(target_val "") } else {
+                use dasu("Usage: owl install [-l] [-t] [--target=d|r] <name> [version]")
+                use dasu("  -l, --list   List packages from all registries")
+                use dasu("  -t, --test   Test install")
+                use dasu("  --target=d|r Install compiled binary to owl cache")
+            }
+        }
         return
     }
+    set version = ver :str mut
+    if len(version) == 0 || version == "*" { set version = "latest" }
+    cmd_install_pkg(name version)
+}
 
-    if version == "" || version == "*" {
-        set version = "latest"
+pub fn cmd_list_packages: () {
+    set reg_dir = util::owl_home_registries()
+    set reg_list = util::trim(proc::run("ls \"" + reg_dir + "\" 2>/dev/null || true"))
+    if len(reg_list) == 0 {
+        use dasu("  no registries configured -- run: owl load --url <registry-url>")
+        return
     }
+    use dasu("  available packages:")
+    set remaining = reg_list :str mut
+    while len(remaining) > 0 {
+        set reg_name = semver::first_token(remaining)
+        set remaining = semver::rest_tokens(remaining) :str mut
+        if len(reg_name) > 0 {
+            set idx_path = reg_dir + "/" + reg_name + "/index.toml"
+            set content = util::trim(proc::run("cat \"" + idx_path + "\" 2>/dev/null || true"))
+            if len(content) > 0 {
+                set lines = semver::count_lines(content)
+                set in_pkg = false :bool mut
+                set cur_name = "" :str mut
+                set cur_ver = "" :str mut
+                set i = 0 :i64 mut
+                while i < lines {
+                    set line = util::trim(semver::nth_line(content i))
+                    if line == "[[package]]" {
+                        if in_pkg && len(cur_name) > 0 {
+                            use dasu("  " + reg_name + " / " + cur_name + " v" + cur_ver)
+                        }
+                        set in_pkg = true
+                        set cur_name = ""
+                        set cur_ver = ""
+                    } else {
+                        if in_pkg {
+                            if util::startswith(line "name =") { set cur_name = semver::extract_str_val(line) }
+                            if util::startswith(line "version =") { set cur_ver = semver::extract_str_val(line) }
+                        }
+                    }
+                    set i += 1
+                }
+                if in_pkg && len(cur_name) > 0 {
+                    use dasu("  " + reg_name + " / " + cur_name + " v" + cur_ver)
+                }
+            }
+        }
+    }
+}
 
+pub fn cmd_install_pkg: (name :str version :str) {
     set resolved = semver::resolve_from_registry(name version)
-    if resolved != "" {
-        set version = resolved
-    }
-
-    set lib_dir = util::owl_home_lib()
-    set lib_dir_copy = lib_dir :str
-    use util::mkdir_p(lib_dir_copy)
-
-    set dirSlash = lib_dir + "/"
-    set extract_dir = dirSlash + name
-
+    if resolved != "" { set version = resolved }
     use dasu("  installing " + name + " v" + version + "...")
-
-    set meta_path = extract_dir + "/meta.toml"
+    set dir = util::owl_home_lib() + "/" + name
+    use util::mkdir_p(dir)
     set meta = "[package]\n" :str mut
     set meta = meta + "name = \"" + name + "\"\n"
     set meta = meta + "version = \"" + version + "\"\n"
     set meta = meta + "compiler = \"" + util::compiler_cmd() + "\"\n"
     set meta = meta + "abi = " + util::abi_version() + "\n"
     set meta = meta + "language = \"" + util::language_version() + "\"\n"
-    use fs_write(meta_path meta)
-
-    use util::fs_make_readonly(extract_dir)
-
+    use fs_write(util::owl_home_lib() + "/" + name + "/meta.toml" meta)
+    use util::fs_make_readonly(util::owl_home_lib() + "/" + name)
     use dasu("  installed " + name + " v" + version)
+}
+
+pub fn cmd_target_install: (target_val :str named :str) {
+    if len(named) > 0 {
+        if !fs_exists(named) {
+            use dasu("  error: binary not found at " + named)
+            return
+        }
+        use proc::run("cp \"" + named + "\" \"" + util::owl_home() + "/bin/\"")
+        use proc::run("chmod +x \"" + named + "\"")
+        use dasu("  installed to owl cache")
+        return
+    }
+    if !util::has_project() {
+        use dasu("  usage: owl install --target=d|r [bin-path]")
+        return
+    }
+    set profile = "debug" :str mut
+    if target_val == "r" { set profile = "release" }
+    set out_dir = util::toml_get("owl.toml" "paths" "output") :str mut
+    if len(out_dir) == 0 { set out_dir = "bin" }
+    set bin_path = out_dir + "/" + profile
+    if !fs_exists(bin_path) {
+        use dasu("  error: no build output at " + bin_path + " -- run owl build first")
+        return
+    }
+    use proc::run("cp \"" + bin_path + "\"/* \"" + util::owl_home() + "/bin/\" 2>/dev/null || true")
+    use dasu("  installed build artifacts to owl cache")
 }

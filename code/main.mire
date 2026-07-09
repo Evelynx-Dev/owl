@@ -159,14 +159,15 @@ pub fn main: () {
     }
 
     if cmd == "install" || cmd == "-S" {
-        set name_arg = args::get_positional(a_load 2)
-        set ver_arg = args::get_positional(a_load 3) :str mut
-        if name_arg == "" {
-            use dasu("Usage: owl install <name> [version]")
-            return
-        }
-        if ver_arg == "" { set ver_arg = "*" }
-        install::cmd_install(name_arg ver_arg)
+        set i_has_l = args::has_flag(args "-l") || args::has_flag(args "--list")
+        set i_has_t = args::has_flag(args "-t") || args::has_flag(args "--test")
+        set i_no_verify = args::has_flag(args "--no-verify")
+        set i_force = args::has_flag(args "--force")
+        set i_target = args::get_flag_value(args "--target")
+        set i_yes = args::has_flag(args "-y") || args::has_flag(args "--yes")
+        set i_name = args::get_positional(args 2)
+        set i_ver = args::get_positional(args 3)
+        install::cmd_install(i_has_l i_has_t i_no_verify i_force i_target i_yes i_name i_ver)
         return
     }
 
