@@ -4,11 +4,11 @@ load util
 fn deps_section: () :str {
     set content = fs::read("owl.toml")
     set marker = "[dependencies]"
-    set sec_start = strings::index_of(content marker)
+    set sec_start = strings::index(content marker)
     if sec_start < 0 { return "" }
     set start_pos = sec_start + len(marker)
     set after = strings::substr(content start_pos 9999)
-    set next_sec = strings::index_of(after "\n[")
+    set next_sec = strings::index(after "\n[")
     if next_sec >= 0 { return strings::substr(after 0 next_sec) }
     return after
 }
@@ -18,22 +18,22 @@ fn find_dep_raw: (dep_name :str) :str {
     if section == "" { return "" }
 
     set search_a = "\n" + dep_name + " = "
-    set pos = strings::index_of(section search_a) :i64 mut
+    set pos = strings::index(section search_a) :i64 mut
     set used_marker = search_a :str mut
     if pos < 0 {
         set search_b = "\n" + dep_name + "="
-        set pos = strings::index_of(section search_b)
+        set pos = strings::index(section search_b)
         set used_marker = search_b
     }
     if pos < 0 {
         set search_c = dep_name + " = "
-        set pos = strings::index_of(section search_c)
+        set pos = strings::index(section search_c)
         set used_marker = search_c
     }
     if pos < 0 { return "" }
 
     set after_key = strings::substr(section pos + len(used_marker) 9999)
-    set nl_pos = strings::index_of(after_key "\n")
+    set nl_pos = strings::index(after_key "\n")
     if nl_pos >= 0 { return strings::substr(after_key 0 nl_pos) }
     return after_key
 }
@@ -45,12 +45,12 @@ fn extract_field: (tbl :str, field :str) :str {
     set trimmed = util::trim(trimmed)
 
     set search = field + " ="
-    set pos = strings::index_of(trimmed search)
+    set pos = strings::index(trimmed search)
     if pos < 0 { return "" }
     set after_start = pos + len(search)
     set after = strings::substr(trimmed after_start 9999)
     set val = util::trim(after) :str mut
-    set comma_pos = strings::index_of(val ",")
+    set comma_pos = strings::index(val ",")
     if comma_pos >= 0 {
         set want_len = comma_pos
         set val = strings::substr(val 0 want_len)
@@ -79,13 +79,13 @@ pub fn get_dep_names: () :str {
     set clen = len(content)
     set pos = 0 :i64 mut
     while pos < clen {
-        set nl = strings::index_of(strings::substr(content pos clen - pos) "\n")
+        set nl = strings::index(strings::substr(content pos clen - pos) "\n")
         if nl < 0 { set pos = clen } else {
             set real_nl = pos + nl
             set line = strings::substr(content pos real_nl - pos)
             set trimmed = util::trim(line)
             if trimmed != "" && !util::startswith(trimmed "[") {
-                set eq_pos = strings::index_of(trimmed "=")
+                set eq_pos = strings::index(trimmed "=")
                 if eq_pos >= 0 {
                     set key = util::trim(strings::substr(trimmed 0 eq_pos))
                     if key != "" {
@@ -106,7 +106,7 @@ pub fn count_deps: () :i64 {
     set pos = 0 :i64 mut
     set nlen = len(names)
     while pos < nlen {
-        set nl = strings::index_of(strings::substr(names pos nlen - pos) "\n")
+        set nl = strings::index(strings::substr(names pos nlen - pos) "\n")
         if nl < 0 { if util::trim(strings::substr(names pos nlen - pos)) != "" { set count += 1 } set pos = nlen } else { if util::trim(strings::substr(names pos nl)) != "" { set count += 1 } set pos = pos + nl + 1 }
     }
     return count
@@ -116,11 +116,11 @@ pub fn get_dep_names_from: (toml_file :str) :str {
     if !fs_exists(toml_file) { return "" }
     set content = fs::read(toml_file)
     set marker = "[dependencies]"
-    set sec_start = strings::index_of(content marker)
+    set sec_start = strings::index(content marker)
     if sec_start < 0 { return "" }
     set start_pos = sec_start + len(marker)
     set after = strings::substr(content start_pos 9999)
-    set next_sec = strings::index_of(after "\n[")
+    set next_sec = strings::index(after "\n[")
     set section = "" :str mut
     if next_sec >= 0 { set section = strings::substr(after 0 next_sec) } else { set section = after }
     set result = "" :str mut
@@ -128,13 +128,13 @@ pub fn get_dep_names_from: (toml_file :str) :str {
     set clen = len(c)
     set pos = 0 :i64 mut
     while pos < clen {
-        set nl = strings::index_of(strings::substr(c pos clen - pos) "\n")
+        set nl = strings::index(strings::substr(c pos clen - pos) "\n")
         if nl < 0 { set pos = clen } else {
             set real_nl = pos + nl
             set line = strings::substr(c pos real_nl - pos)
             set trimmed = util::trim(line)
             if trimmed != "" && !util::startswith(trimmed "[") {
-                set eq_pos = strings::index_of(trimmed "=")
+                set eq_pos = strings::index(trimmed "=")
                 if eq_pos >= 0 {
                     set key = util::trim(strings::substr(trimmed 0 eq_pos))
                     if key != "" {
@@ -152,31 +152,31 @@ pub fn get_dep_field_from: (toml_file :str dep_name :str field :str) :str {
     if !fs_exists(toml_file) { return "" }
     set content = fs::read(toml_file)
     set marker = "[dependencies]"
-    set sec_start = strings::index_of(content marker)
+    set sec_start = strings::index(content marker)
     if sec_start < 0 { return "" }
     set start_pos = sec_start + len(marker)
     set after = strings::substr(content start_pos 9999)
-    set next_sec = strings::index_of(after "\n[")
+    set next_sec = strings::index(after "\n[")
     set section = "" :str mut
     if next_sec >= 0 { set section = strings::substr(after 0 next_sec) } else { set section = after }
 
     set search_a = "\n" + dep_name + " = "
-    set pos = strings::index_of(section search_a) :i64 mut
+    set pos = strings::index(section search_a) :i64 mut
     set used_marker = search_a :str mut
     if pos < 0 {
         set search_b = "\n" + dep_name + "="
-        set pos = strings::index_of(section search_b)
+        set pos = strings::index(section search_b)
         set used_marker = search_b
     }
     if pos < 0 {
         set search_c = dep_name + " = "
-        set pos = strings::index_of(section search_c)
+        set pos = strings::index(section search_c)
         set used_marker = search_c
     }
     if pos < 0 { return "" }
 
     set after_key = strings::substr(section pos + len(used_marker) 9999)
-    set nl_pos = strings::index_of(after_key "\n")
+    set nl_pos = strings::index(after_key "\n")
     set raw = "" :str mut
     if nl_pos >= 0 { set raw = strings::substr(after_key 0 nl_pos) } else { set raw = after_key }
 

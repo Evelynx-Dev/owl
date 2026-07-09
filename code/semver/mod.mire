@@ -5,12 +5,12 @@ pub fn parse_version: (ver :&str) :str {
     set trimmed = util::trim(ver)
     if trimmed == "" { return "0.0.0" }
 
-    set dot1 = strings::index_of(trimmed ".")
+    set dot1 = strings::index(trimmed ".")
     if dot1 < 0 { return trimmed + ".0.0" }
 
     set major = strings::substr(trimmed 0 dot1)
     set rest = strings::substr(trimmed dot1 + 1 9999)
-    set dot2 = strings::index_of(rest ".")
+    set dot2 = strings::index(rest ".")
     if dot2 < 0 { return major + "." + rest + ".0" }
 
     set minor = strings::substr(rest 0 dot2)
@@ -22,17 +22,17 @@ pub fn compare_versions: (a :&str b :&str) :i64 {
     set pa = parse_version(a)
     set pb = parse_version(b)
 
-    set dot1a = strings::index_of(pa ".")
+    set dot1a = strings::index(pa ".")
     set major_a = util::string_to_i64(strings::substr(pa 0 dot1a))
     set rest_a = strings::substr(pa dot1a + 1 9999)
-    set dot2a = strings::index_of(rest_a ".")
+    set dot2a = strings::index(rest_a ".")
     set minor_a = util::string_to_i64(strings::substr(rest_a 0 dot2a))
     set patch_a = util::string_to_i64(strings::substr(rest_a dot2a + 1 9999))
 
-    set dot1b = strings::index_of(pb ".")
+    set dot1b = strings::index(pb ".")
     set major_b = util::string_to_i64(strings::substr(pb 0 dot1b))
     set rest_b = strings::substr(pb dot1b + 1 9999)
-    set dot2b = strings::index_of(rest_b ".")
+    set dot2b = strings::index(rest_b ".")
     set minor_b = util::string_to_i64(strings::substr(rest_b 0 dot2b))
     set patch_b = util::string_to_i64(strings::substr(rest_b dot2b + 1 9999))
 
@@ -84,7 +84,7 @@ pub fn constraint_matches: (version :&str constraint :&str) :bool {
 
     if op == "^" {
         if compare_versions(vv pv) < 0 { return false }
-        set dot1 = strings::index_of(pv ".")
+        set dot1 = strings::index(pv ".")
         set major_s = strings::substr(pv 0 dot1)
         set major = util::string_to_i64(major_s)
         set upper = util::i64_to_string(major + 1) + ".0.0"
@@ -93,9 +93,9 @@ pub fn constraint_matches: (version :&str constraint :&str) :bool {
 
     if op == "~" {
         if compare_versions(vv pv) < 0 { return false }
-        set dot1 = strings::index_of(pv ".")
+        set dot1 = strings::index(pv ".")
         set rest = strings::substr(pv dot1 + 1 9999)
-        set dot2 = strings::index_of(rest ".")
+        set dot2 = strings::index(rest ".")
         set major_s = strings::substr(pv 0 dot1)
         set minor_s = strings::substr(rest 0 dot2)
         set minor = util::string_to_i64(minor_s)
@@ -120,14 +120,14 @@ pub fn count_lines: (s :&str) :i64 {
 
 pub fn first_token: (s :&str) :str {
     set trimmed = util::trim(s)
-    set sp = strings::index_of(trimmed " ")
+    set sp = strings::index(trimmed " ")
     if sp < 0 { return trimmed }
     return strings::substr(trimmed 0 sp)
 }
 
 pub fn rest_tokens: (s :&str) :str {
     set trimmed = util::trim(s)
-    set sp = strings::index_of(trimmed " ")
+    set sp = strings::index(trimmed " ")
     if sp < 0 { return "" }
     return util::trim(strings::substr(trimmed sp + 1 9999))
 }
@@ -153,7 +153,7 @@ pub fn best_match: (versions :&str constraint :&str) :str {
 
 pub fn extract_str_val: (line :&str) :str {
     set trimmed = util::trim(line)
-    set eq_pos = strings::index_of(trimmed "=")
+    set eq_pos = strings::index(trimmed "=")
     if eq_pos < 0 { return "" }
     set val = util::trim(strings::substr(trimmed eq_pos + 1 9999)) :str mut
     if util::startswith(val "\"") { set val = strings::substr(val 1 len(val) - 1) }
@@ -171,7 +171,7 @@ pub fn nth_line: (s :&str n :i64) :str {
         set pos += 1
     }
     if pos >= slen { return "" }
-    set nl = strings::index_of(strings::substr(s pos slen - pos) "\n")
+    set nl = strings::index(strings::substr(s pos slen - pos) "\n")
     if nl < 0 { return strings::substr(s pos slen - pos) }
     return strings::substr(s pos nl)
 }
@@ -268,12 +268,12 @@ pub fn get_cached_resolution: (name :&str constraint :&str) :str {
     set n = util::trim(name)
     set c = util::trim(constraint)
     set prefix = n + "|" + c + "="
-    set pos = strings::index_of(content prefix)
+    set pos = strings::index(content prefix)
     if pos < 0 { return "" }
     set after = strings::substr(content pos + len(prefix) 9999)
     if !util::startswith(after "\"") { return "" }
     set rest = strings::substr(after 1 9999)
-    set endq = strings::index_of(rest "\"")
+    set endq = strings::index(rest "\"")
     if endq < 0 { return "" }
     return strings::substr(rest 0 endq)
 }
