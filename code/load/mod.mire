@@ -67,7 +67,7 @@ pub fn cmd_load_dep: (args :vec[str]) {
     }
 
     set marker = "[dependencies]"
-    set sec_pos = strings::index_of(c marker)
+    set sec_pos = strings::index(c marker)
     if sec_pos < 0 {
         use dasu("error: [dependencies] section not found in owl.toml")
         return

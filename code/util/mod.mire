@@ -3,7 +3,7 @@ module util
 /! TOML parser (helpers first) !/
 pub fn toml_extract_val: (content :&str, val_start :i64) :str {
     set after_key = strings::substr(content val_start 9999)
-    set nl_pos = strings::index_of(after_key "\n")
+    set nl_pos = strings::index(after_key "\n")
     set raw_val = after_key :str mut
     if nl_pos >= 0 { set raw_val = strings::substr(after_key 0 nl_pos) }
     set trimmed = strings::trim(raw_val)
@@ -22,18 +22,18 @@ pub fn toml_get: (file :str section :str key :str) :str {
     set content = fs::read(file)
 
     set section_marker = "[" + section + "]"
-    set section_start = strings::index_of(content section_marker)
+    set section_start = strings::index(content section_marker)
     if section_start < 0 { return "" }
 
     set key_with_space = "\n" + key + " ="
-    set key_pos1 = strings::index_of(content key_with_space)
+    set key_pos1 = strings::index(content key_with_space)
     if key_pos1 >= 0 {
         set val_start = key_pos1 + len(key_with_space)
         return toml_extract_val(content val_start)
     }
 
     set key_no_space = "\n" + key + "="
-    set key_pos2 = strings::index_of(content key_no_space)
+    set key_pos2 = strings::index(content key_no_space)
     if key_pos2 >= 0 {
         set val_start = key_pos2 + len(key_no_space)
         return toml_extract_val(content val_start)
@@ -43,18 +43,18 @@ pub fn toml_get: (file :str section :str key :str) :str {
 
 pub fn toml_get_from_string: (content :str section :str key :str) :str {
     set section_marker = "[" + section + "]"
-    set section_start = strings::index_of(content section_marker)
+    set section_start = strings::index(content section_marker)
     if section_start < 0 { return "" }
 
     set key_with_space = "\n" + key + " ="
-    set key_pos1 = strings::index_of(content key_with_space)
+    set key_pos1 = strings::index(content key_with_space)
     if key_pos1 >= 0 {
         set val_start = key_pos1 + len(key_with_space)
         return toml_extract_val(content val_start)
     }
 
     set key_no_space = "\n" + key + "="
-    set key_pos2 = strings::index_of(content key_no_space)
+    set key_pos2 = strings::index(content key_no_space)
     if key_pos2 >= 0 {
         set val_start = key_pos2 + len(key_no_space)
         return toml_extract_val(content val_start)
@@ -93,24 +93,24 @@ pub fn json_quote: (s :str) :str {
 
 pub fn json_get_str: (content :&str key :str) :str {
     set search = "\"" + key + "\": \""
-    set pos = strings::index_of(content search)
+    set pos = strings::index(content search)
     if pos < 0 { return "" }
     set start = pos + strings::len(search)
     set after = strings::substr(content start strings::len(content))
-    set end = strings::index_of(after "\"")
+    set end = strings::index(after "\"")
     if end < 0 { return "" }
     return strings::substr(after 0 end)
 }
 
 pub fn json_get_int_str: (content :&str key :str) :str {
     set search = "\"" + key + "\": "
-    set pos = strings::index_of(content search)
+    set pos = strings::index(content search)
     if pos < 0 { return "" }
     set start = pos + strings::len(search)
     set after = strings::substr(content start strings::len(content))
-    set end = strings::index_of(after ",") :i64 mut
-    if end < 0 { set end = strings::index_of(after "\n") }
-    if end < 0 { set end = strings::index_of(after "}") }
+    set end = strings::index(after ",") :i64 mut
+    if end < 0 { set end = strings::index(after "\n") }
+    if end < 0 { set end = strings::index(after "}") }
     if end < 0 { return strings::trim(after) }
     return strings::trim(strings::substr(after 0 end))
 }
@@ -172,7 +172,7 @@ pub fn abi_version: () :str {
 pub fn language_version: () :str {
     set v = compiler_version()
     if v == "" { return "mire" }
-    set sp = strings::index_of(v "v")
+    set sp = strings::index(v "v")
     if sp >= 0 { return "mire " + strings::substr(v sp + 1 len(v) - sp - 1) }
     return v
 }
@@ -219,7 +219,7 @@ pub fn startswith: (s :&str, prefix :&str) :bool { return strings::startswith(s 
 pub fn endswith: (s :&str, suffix :&str) :bool { return strings::endswith(s suffix) }
 pub fn substr: (s :&str, start :i64, len :i64) :str { return strings::substr(s start len) }
 pub fn replace: (s :&str, old :&str, new :&str) :str { return strings::replace(s old new) }
-pub fn list_get: (list :&vec[str], index :i64) :str { return lists::get_str(list index) }
+pub fn list_get: (list :&vec[str], index :i64) :str { return lists::get::str(list index) }
 
 pub fn string_to_i64: (s :str) :i64 { return rt_string_to_i64(s) }
 pub fn i64_to_string: (v :i64) :str { return rt_i64_to_string(v) }

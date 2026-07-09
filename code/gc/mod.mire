@@ -21,8 +21,8 @@ pub fn cmd_gc: (args :vec[str]) {
 
     set remaining = pkg_list :str mut
     while remaining != "" {
-        set pkg = strings::substr(remaining 0 strings::index_of(remaining " "))
-        set nxt = strings::index_of(remaining " ")
+        set pkg = strings::substr(remaining 0 strings::index(remaining " "))
+        set nxt = strings::index(remaining " ")
         if nxt < 0 { set remaining = "" } else { set remaining = strings::substr(remaining nxt + 1 9999) }
 
         if pkg == "" { continue }
@@ -32,8 +32,8 @@ pub fn cmd_gc: (args :vec[str]) {
         set ver_list = util::trim(proc::run("ls \"" + pkg_dir + "\" 2>/dev/null || true"))
         set v_remaining = ver_list :str mut
         while v_remaining != "" {
-            set ver = strings::substr(v_remaining 0 strings::index_of(v_remaining " "))
-            set nxt2 = strings::index_of(v_remaining " ")
+            set ver = strings::substr(v_remaining 0 strings::index(v_remaining " "))
+            set nxt2 = strings::index(v_remaining " ")
             if nxt2 < 0 { set v_remaining = "" } else { set v_remaining = strings::substr(v_remaining nxt2 + 1 9999) }
 
             set ver_dir = pkg_dir + "/" + ver

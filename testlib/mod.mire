@@ -20,13 +20,13 @@ pub fn assert_msg: (cond :bool msg :str) {
 
 pub fn assert_eq: (expected :i64 actual :i64) {
     if expected != actual {
-        fail("expected " + strings::to_string(expected) + ", got " + strings::to_string(actual))
+        fail("expected " + strings::from::i64(expected) + ", got " + strings::from::i64(actual))
     }
 }
 
 pub fn assert_ne: (a :i64 b :i64) {
     if a == b {
-        fail("not equal, both " + strings::to_string(a))
+        fail("not equal, both " + strings::from::i64(a))
     }
 }
 
@@ -50,12 +50,12 @@ pub fn assert_false: (cond :bool) {
 
 pub fn assert_lt: (a :i64 b :i64) {
     if !(a < b) {
-        fail("expected " + strings::to_string(a) + " < " + strings::to_string(b))
+        fail("expected " + strings::from::i64(a) + " < " + strings::from::i64(b))
     }
 }
 
 pub fn assert_gt: (a :i64 b :i64) {
     if !(a > b) {
-        fail("expected " + strings::to_string(a) + " > " + strings::to_string(b))
+        fail("expected " + strings::from::i64(a) + " > " + strings::from::i64(b))
     }
 }

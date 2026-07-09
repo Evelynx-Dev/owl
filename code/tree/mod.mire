@@ -21,7 +21,7 @@ pub fn cmd_tree: (args :vec[str]) {
 
     set remaining = dep_names :str mut
     while remaining != "" {
-        set sp = strings::index_of(remaining " ")
+        set sp = strings::index(remaining " ")
         set name = "" :str mut
         if sp < 0 {
             set name = util::trim(remaining)
@@ -51,7 +51,7 @@ pub fn cmd_tree: (args :vec[str]) {
                 if child_deps != "" {
                     set cr = child_deps :str mut
                     while cr != "" {
-                        set sp2 = strings::index_of(cr " ")
+                        set sp2 = strings::index(cr " ")
                         set cn = "" :str mut
                         if sp2 < 0 {
                             set cn = util::trim(cr)

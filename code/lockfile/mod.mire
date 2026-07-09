@@ -24,7 +24,7 @@ pub fn lockfile_in_sync: () :bool {
     set lcount_pos = 0 :i64 mut
     while lcount_pos < lock_str_len {
         set lrem = strings::substr(lock_str lcount_pos lock_str_len - lcount_pos)
-        set lnl = strings::index_of(lrem "\n")
+        set lnl = strings::index(lrem "\n")
         if lnl < 0 {
             if util::trim(lrem) != "" { set lock_count += 1 }
             set lcount_pos = lock_str_len
@@ -42,7 +42,7 @@ pub fn lockfile_in_sync: () :bool {
     set nlen = len(toml_names)
     while pos < nlen {
         set remaining_toml = strings::substr(toml_names pos nlen - pos)
-        set nl = strings::index_of(remaining_toml "\n")
+        set nl = strings::index(remaining_toml "\n")
         set end = 0 :i64 mut
         if nl < 0 { set end = nlen } else { set end = pos + nl }
         set name_line = strings::substr(toml_names pos end - pos)
@@ -54,7 +54,7 @@ pub fn lockfile_in_sync: () :bool {
             set lnlen = len(lock_str)
             while lpos < lnlen {
                 set lrem = strings::substr(lock_str lpos lnlen - lpos)
-                set lnl = strings::index_of(lrem "\n")
+                set lnl = strings::index(lrem "\n")
                 set lend = 0 :i64 mut
                 if lnl < 0 { set lend = lnlen } else { set lend = lpos + lnl }
                 set lname_line = strings::substr(lock_str lpos lend - lpos)
@@ -80,20 +80,20 @@ fn lockfile_package_names: () :str {
     set running = true :bool mut
     while running {
         set remaining = strings::substr(content pos clen - pos)
-        set idx = strings::index_of(remaining search)
+        set idx = strings::index(remaining search)
         if idx < 0 { set running = false } else {
             set pkg_start = pos + idx
             set after_pkg = strings::substr(content pkg_start clen - pkg_start)
-            set next_pkg = strings::index_of(after_pkg "[[package]]")
+            set next_pkg = strings::index(after_pkg "[[package]]")
             set pkg_end = 0 :i64 mut
             if next_pkg > 0 { set pkg_end = pkg_start + next_pkg } else { set pkg_end = clen }
             set pkg_content = strings::substr(content pkg_start pkg_end - pkg_start)
             set name_search = "\nname     = \""
-            set npos = strings::index_of(pkg_content name_search)
+            set npos = strings::index(pkg_content name_search)
             if npos >= 0 {
                 set nstart = npos + len(name_search)
                 set after_name = strings::substr(pkg_content nstart len(pkg_content) - nstart)
-                set nend = strings::index_of(after_name "\"")
+                set nend = strings::index(after_name "\"")
                 if nend >= 0 {
                     set pkg_name = strings::substr(after_name 0 nend)
                     if result == "" { set result = pkg_name } else { set result = result + "\n" + pkg_name }
@@ -114,7 +114,7 @@ fn lockfile_count_names: (names :str) :i64 {
     set running = true :bool mut
     while running {
         set remaining = strings::substr(names pos nlen - pos)
-        set nl = strings::index_of(remaining "\n")
+        set nl = strings::index(remaining "\n")
         if nl < 0 {
             if util::trim(remaining) != "" { set count += 1 }
             set running = false
@@ -150,7 +150,7 @@ pub fn generate_lockfile: () :bool {
     set running = true :bool mut
     while running {
         set remaining = strings::substr(names pos nlen - pos)
-        set nl = strings::index_of(remaining "\n")
+        set nl = strings::index(remaining "\n")
         set end = 0 :i64 mut
         if nl < 0 { set end = nlen } else { set end = pos + nl }
         set name_line = strings::substr(names pos end - pos)

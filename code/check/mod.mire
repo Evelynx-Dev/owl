@@ -232,7 +232,7 @@ pub fn cmd_check: (args :vec[str]) {
     set nlen = len(names)
     set pos = 0 :i64 mut
     while pos < nlen {
-        set nl = strings::index_of(strings::substr(names pos nlen - pos) "\n")
+        set nl = strings::index(strings::substr(names pos nlen - pos) "\n")
         set key = "" :str mut
         if nl < 0 {
             set key = util::trim(strings::substr(names pos nlen - pos))
@@ -276,7 +276,7 @@ pub fn cmd_check: (args :vec[str]) {
         set pos2 = 0 :i64 mut
         set nlen2 = len(names)
         while pos2 < nlen2 {
-            set nl2 = strings::index_of(strings::substr(names pos2 nlen2 - pos2) "\n")
+            set nl2 = strings::index(strings::substr(names pos2 nlen2 - pos2) "\n")
             set key2 = "" :str mut
             if nl2 < 0 {
                 set key2 = util::trim(strings::substr(names pos2 nlen2 - pos2))

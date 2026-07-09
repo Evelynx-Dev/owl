@@ -58,7 +58,7 @@ pub fn cmd_info: (args :vec[str]) {
         set nlen = len(names)
         set pos = 0 :i64 mut
         while pos < nlen {
-            set nl = strings::index_of(strings::substr(names pos nlen - pos) "\n")
+            set nl = strings::index(strings::substr(names pos nlen - pos) "\n")
             set key = "" :str mut
             if nl < 0 {
                 set key = util::trim(strings::substr(names pos nlen - pos))
