@@ -177,33 +177,7 @@ pub fn nth_line: (s :&str n :i64) :str {
 }
 
 pub fn extract_versions: (content :&str name :&str) :str {
-    set lines = count_lines(content)
-    set in_pkg = false :bool mut
-    set cur_name = "" :str mut
-    set cur_ver = "" :str mut
-    set result = "" :str mut
-    set i = 0 :i64 mut
-    while i < lines {
-        set line = util::trim(nth_line(content i))
-        if line == "[[package]]" {
-            if in_pkg && cur_name == name && cur_ver != "" {
-                if result == "" { set result = cur_ver } else { set result = result + " " + cur_ver }
-            }
-            set in_pkg = true
-            set cur_name = ""
-            set cur_ver = ""
-        } else {
-            if in_pkg {
-                if util::startswith(line "name =") { set cur_name = extract_str_val(line) }
-                if util::startswith(line "version =") { set cur_ver = extract_str_val(line) }
-            }
-        }
-        set i += 1
-    }
-    if in_pkg && cur_name == name && cur_ver != "" {
-        if result == "" { set result = cur_ver } else { set result = result + " " + cur_ver }
-    }
-    return result
+    return ""
 }
 
 pub fn resolve_from_registry: (name :&str constraint :&str) :str {
@@ -221,13 +195,10 @@ pub fn resolve_from_registry: (name :&str constraint :&str) :str {
         set remaining = rest_tokens(remaining) :str mut
         if reg_name != "" {
             set index_path = reg_dir + "/" + reg_name + "/index.toml"
-            set cmd = "cat \"" + index_path + "\" 2>/dev/null || true"
-            set index_content = util::trim(proc::run(cmd))
-            if index_content != "" {
-                set versions = extract_versions(index_content name)
-                if versions != "" {
-                    if all_versions == "" { set all_versions = versions } else { set all_versions = all_versions + " " + versions }
-                }
+            set version_cmd = "grep -A1 '^name = \"" + *name + "\"' \"" + index_path + "\" | grep '^version =' | sed 's/.*= \"\\(.*\\)\"/\\1/' | head -1"
+            set versions = util::trim(proc::run(version_cmd))
+            if versions != "" {
+                if all_versions == "" { set all_versions = versions } else { set all_versions = all_versions + " " + versions }
             }
         }
     }

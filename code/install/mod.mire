@@ -22,7 +22,7 @@ pub fn cmd_install: (has_l :bool has_t :bool no_verify :bool force :bool target_
     }
     set version = ver :str mut
     if len(version) == 0 || version == "*" { set version = "latest" }
-    cmd_install_pkg(name version)
+    cmd_install_pkg(name version no_verify force)
 }
 
 pub fn cmd_list_packages: () {
@@ -71,21 +71,121 @@ pub fn cmd_list_packages: () {
     }
 }
 
-pub fn cmd_install_pkg: (name :str version :str) {
+pub fn cmd_install_pkg: (name :str version :str no_verify :bool force :bool) {
     set resolved = semver::resolve_from_registry(name version)
     if resolved != "" { set version = resolved }
-    use dasu("  installing " + name + " v" + version + "...")
-    set dir = util::owl_home_lib() + "/" + name
-    use util::mkdir_p(dir)
-    set meta = "[package]\n" :str mut
-    set meta = meta + "name = \"" + name + "\"\n"
-    set meta = meta + "version = \"" + version + "\"\n"
-    set meta = meta + "compiler = \"" + util::compiler_cmd() + "\"\n"
-    set meta = meta + "abi = " + util::abi_version() + "\n"
-    set meta = meta + "language = \"" + util::language_version() + "\"\n"
-    use fs_write(util::owl_home_lib() + "/" + name + "/meta.toml" meta)
-    use util::fs_make_readonly(util::owl_home_lib() + "/" + name)
-    use dasu("  installed " + name + " v" + version)
+
+    set pkg_info = "" :str mut
+    set pkg_name = name :str
+    set pkg_ver = version :str
+
+    set reg_dir = util::owl_home_registries()
+    set reg_list = util::trim(proc::run("ls \"" + reg_dir + "\" 2>/dev/null || true"))
+    if reg_list != "" {
+        set remaining = reg_list :str mut
+        while len(remaining) > 0 {
+            set reg_name = semver::first_token(remaining)
+            set remaining = semver::rest_tokens(remaining) :str mut
+            if pkg_info != "" { break }
+            if len(reg_name) > 0 {
+                set idx_path = reg_dir + "/" + reg_name + "/index.toml"
+                set tmp = "/tmp/owl_install_pkg.tmp"
+                set cmd = "grep -A10 '^name = \"" + pkg_name + "\"' \"" + idx_path + "\" > \"" + tmp + "\" 2>/dev/null"
+                use proc::run(cmd)
+                set grep_out = util::trim(fs::read(tmp))
+                if grep_out != "" {
+                    set tarball_line = util::trim(proc::run("grep '^tarball =' \"" + tmp + "\" 2>/dev/null | sed 's/.*= \"\\(.*\\)\"/\\1/'"))
+                    set sha256_line = util::trim(proc::run("grep '^sha256 =' \"" + tmp + "\" 2>/dev/null | sed 's/.*= \"\\(.*\\)\"/\\1/'"))
+                    if tarball_line != "" {
+                        set pkg_info = tarball_line + "|" + sha256_line + "|" + reg_name
+                    }
+                }
+                use proc::run("rm -f \"" + tmp + "\" 2>/dev/null")
+            }
+        }
+    }
+
+    if pkg_info == "" {
+        use dasu("  error: could not find package \"" + pkg_name + "\" in any registry")
+        return
+    }
+
+    set pipe1 = strings::index(pkg_info "|")
+    if pipe1 < 0 {
+        use dasu("  error: invalid package info from registry")
+        return
+    }
+    set pipe2 = strings::index(strings::substr(pkg_info pipe1 + 1 9999) "|")
+    if pipe2 < 0 {
+        use dasu("  error: invalid package info from registry (missing sha256 or reg)")
+        return
+    }
+    set tarball_path = strings::substr(pkg_info 0 pipe1)
+    set sha256_val = strings::substr(pkg_info pipe1 + 1 pipe2)
+    set reg_name = strings::substr(pkg_info pipe1 + pipe2 + 2 9999)
+
+    set reg_url = "" :str mut
+    if fs_exists(reg_dir + "/" + reg_name + "/registry.json") {
+        set reg_content = fs::read(reg_dir + "/" + reg_name + "/registry.json")
+        set reg_url = util::json_get_str(reg_content "url") :str mut
+        if reg_url == "" {
+            set reg_url = util::json_get_str(reg_content "name")
+        }
+    }
+    if reg_url == "" {
+        use dasu("  error: could not determine URL for registry \"" + reg_name + "\"")
+        return
+    }
+
+    set tarball_url = reg_url + "/" + tarball_path
+    use dasu("  downloading from " + tarball_url + "...")
+
+    set tarball_file = util::owl_home() + "/cache/tarballs/" + pkg_name + "-" + pkg_ver + ".tar.zst"
+    use util::mkdir_p(util::owl_home() + "/cache/tarballs")
+    use proc::run("curl -sL -o \"" + tarball_file + "\" \"" + tarball_url + "\" 2>/dev/null || true")
+
+    if !fs_exists(tarball_file) {
+        use dasu("  error: download failed")
+        return
+    }
+
+    if !no_verify && sha256_val != "" {
+        use dasu("  verifying SHA-256...")
+        set actual = util::trim(proc::run("sha256sum \"" + tarball_file + "\" 2>/dev/null | cut -d' ' -f1 || true"))
+        if actual == "" {
+            use dasu("  warning: could not compute SHA-256 (sha256sum missing?)")
+        } else {
+            if actual != sha256_val {
+                use proc::run("rm -f \"" + tarball_file + "\" 2>/dev/null")
+                use dasu("  error: SHA-256 mismatch")
+                use dasu("    expected: " + sha256_val)
+                use dasu("    actual:   " + actual)
+                return
+            }
+            use dasu("  SHA-256 OK")
+        }
+    }
+
+    set meta_path = util::owl_home_lib() + "/" + pkg_name + "/meta.toml"
+    use util::mkdir_p(util::owl_home_lib() + "/" + pkg_name)
+
+    use dasu("  extracting...")
+    use proc::run("tar -xzf \"" + tarball_file + "\" -C \"" + util::owl_home_lib() + "/" + pkg_name + "\" 2>/dev/null || true")
+
+    if !fs_exists(meta_path) {
+        use dasu("  writing metadata...")
+        set meta = "[package]\n" :str mut
+        set meta = meta + "name = \"" + pkg_name + "\"\n"
+        set meta = meta + "version = \"" + pkg_ver + "\"\n"
+        set meta = meta + "compiler = \"" + util::compiler_cmd() + "\"\n"
+        set meta = meta + "abi = " + util::abi_version() + "\n"
+        set meta = meta + "language = \"" + util::language_version() + "\"\n"
+        use fs_write(util::owl_home_lib() + "/" + pkg_name + "/meta.toml" meta)
+    }
+
+    use util::fs_make_readonly(util::owl_home_lib() + "/" + pkg_name)
+    use proc::run("rm -f \"" + tarball_file + "\" 2>/dev/null")
+    use dasu("  installed " + pkg_name + " v" + pkg_ver)
 }
 
 pub fn cmd_target_install: (target_val :str named :str) {
