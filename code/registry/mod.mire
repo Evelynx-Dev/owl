@@ -144,13 +144,36 @@ pub fn cmd_registry_sync_one: (name :str, reg_path :str) {
         return
     }
 
-    use proc::run("curl -sL -o \"" + tmp + "/index.toml\" \"" + url + "/index.toml\" 2>/dev/null || true")
+    use proc::run("curl -sL --fail -o \"" + tmp + "/index.toml\" \"" + url + "/index.toml\" 2>/dev/null || true")
     set index_content = util::trim(fs::read(tmp + "/index.toml"))
 
     if index_content == "" {
         use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
         use dasu("    [FAIL]  could not fetch index.toml from " + url)
         return
+    }
+
+    set pubkey = util::json_get_str(content "public-key")
+    use proc::run("curl -sL --fail -o \"" + tmp + "/index.toml.sig\" \"" + url + "/index.toml.sig\" 2>/dev/null || true")
+    set sig_file = tmp + "/index.toml.sig"
+    set sig_size = util::trim(proc::run("stat -c%s \"" + sig_file + "\" 2>/dev/null || echo 0"))
+    if sig_size != "0" && pubkey != "" {
+        use dasu("    [INFO]  verifying index.toml signature...")
+        set idx_file = tmp + "/index.toml"
+        set verify_result = crypto::crypto_verify_ed25519_sigfile(pubkey idx_file sig_file)
+        if verify_result == "true" {
+            use dasu("    [OK]    signature valid")
+        } else {
+            use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
+            use dasu("    [FAIL]  index.toml signature verification failed")
+            return
+        }
+    } else {
+        if pubkey == "" {
+            use dasu("    [WARN]  no public-key in registry.json - skipping signature verification")
+        } else {
+            use dasu("    [WARN]  no index.toml.sig - skipping signature verification")
+        }
     }
 
     use fs_write(reg_path + "/index.toml" index_content)

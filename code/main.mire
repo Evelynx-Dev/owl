@@ -167,7 +167,8 @@ pub fn main: () {
         set i_yes = args::has_flag(args "-y") || args::has_flag(args "--yes")
         set i_name = args::get_positional(args 2)
         set i_ver = args::get_positional(args 3)
-        install::cmd_install(i_has_l i_has_t i_no_verify i_force i_target i_yes i_name i_ver)
+        set ec = install::cmd_install(i_has_l i_has_t i_no_verify i_force i_target i_yes i_name i_ver) :i64
+        if ec != 0 { proc_exit(ec) }
         return
     }
 

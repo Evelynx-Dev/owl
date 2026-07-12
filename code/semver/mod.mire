@@ -189,10 +189,11 @@ pub fn resolve_from_registry: (name :&str constraint :&str) :str {
     if reg_list == "" { return "" }
 
     set all_versions = "" :str mut
-    set remaining = reg_list :str mut
-    while remaining != "" {
-        set reg_name = first_token(remaining)
-        set remaining = rest_tokens(remaining) :str mut
+    set entries = util::split(reg_list "\n")
+    set ni = len(entries)
+    set i_reg = 0 :i64 mut
+    while i_reg < ni {
+        set reg_name = util::trim(util::list_get(entries i_reg))
         if reg_name != "" {
             set index_path = reg_dir + "/" + reg_name + "/index.toml"
             set version_cmd = "grep -A1 '^name = \"" + *name + "\"' \"" + index_path + "\" | grep '^version =' | sed 's/.*= \"\\(.*\\)\"/\\1/' | head -1"
@@ -201,6 +202,7 @@ pub fn resolve_from_registry: (name :&str constraint :&str) :str {
                 if all_versions == "" { set all_versions = versions } else { set all_versions = all_versions + " " + versions }
             }
         }
+        set i_reg += 1
     }
 
     if all_versions == "" { return "" }
