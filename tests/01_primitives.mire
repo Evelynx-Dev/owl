@@ -1,4 +1,4 @@
-#!cfg::test
+// owl syntax test
 load kioto
 load testlib
 
@@ -38,7 +38,6 @@ pub fn main: () {
     testlib::assert_eq(2147483648 big2)
     use dasu("  i64 near 32-bit boundary: ok")
 
-    set zero = 0 :i64
     testlib::assert_true(42 > 0)
     testlib::assert_true(-1 < 0)
     testlib::assert_true(5 >= 5)

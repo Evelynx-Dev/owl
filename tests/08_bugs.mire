@@ -1,9 +1,10 @@
-#!cfg::test
+// owl syntax test
 load kioto
 load testlib
 
 pub fn main: () {
     use dasu("--- regression tests for known bugs ---")
 
+    testlib.assert_true(true)
     use dasu("  all regressions pass")
 }

@@ -25,5 +25,12 @@ Thumbs.db
 *.step.test
 *.full
 
+# Compiled binaries (root-level artifacts)
+owl
+owl_test
+
 # Generated test harness
 _test_harness.mire
+
+# Generated test lib symlink
+tests/lib

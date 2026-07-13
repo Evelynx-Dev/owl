@@ -1,12 +1,9 @@
 module testlib
+load kioto
 
-extern fn rt_i64_to_string: (value :i64) :str lib "c"
-extern fn rt_f64_to_string: (value :f64) :str lib "c"
-extern fn pal_proc_exit: (status :i64) lib "c"
-
-fn fail: (msg :str) {
+pub fn fail: (msg :str) {
     use dasu("  FAIL: " + msg)
-    use pal_proc_exit(1)
+    use proc_exit(1)
 }
 
 pub fn assert: (cond :bool) {
@@ -23,13 +20,13 @@ pub fn assert_msg: (cond :bool msg :str) {
 
 pub fn assert_eq: (expected :i64 actual :i64) {
     if expected != actual {
-        fail("expected " + rt_i64_to_string(expected) + ", got " + rt_i64_to_string(actual))
+        fail("expected " + strings::from::i64(expected) + ", got " + strings::from::i64(actual))
     }
 }
 
 pub fn assert_ne: (a :i64 b :i64) {
     if a == b {
-        fail("not equal, both " + rt_i64_to_string(a))
+        fail("not equal, both " + strings::from::i64(a))
     }
 }
 
@@ -53,13 +50,12 @@ pub fn assert_false: (cond :bool) {
 
 pub fn assert_lt: (a :i64 b :i64) {
     if !(a < b) {
-        fail("expected " + rt_i64_to_string(a) + " < " + rt_i64_to_string(b))
+        fail("expected " + strings::from::i64(a) + " < " + strings::from::i64(b))
     }
 }
 
 pub fn assert_gt: (a :i64 b :i64) {
     if !(a > b) {
-        fail("expected " + rt_i64_to_string(a) + " > " + rt_i64_to_string(b))
+        fail("expected " + strings::from::i64(a) + " > " + strings::from::i64(b))
     }
 }
-

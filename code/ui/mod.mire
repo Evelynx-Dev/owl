@@ -1,0 +1,43 @@
+module ui
+load util
+
+pub fn print_banner: () {
+    use dasu("Owl v" + util::owl_version())
+    use dasu("Compiler: " + util::compiler_version())
+    use dasu("Language: Mire")
+}
+
+pub fn print_help: () {
+    print_banner()
+    use dasu("")
+    use dasu("Usage: owl <command> [flags]")
+    use dasu("")
+    use dasu("Build commands:")
+    use dasu("  build  -B  [file]  [-r|--release] [-O <n>]")
+    use dasu("  run    -R  [file]  [-r|--release] [-O <n>] [-- <args>]")
+    use dasu("  test   -T  [file]  [--verbose] [--no-run]")
+    use dasu("  check  -K         validate dependencies and ABI")
+    use dasu("  debug             compile with IR output")
+    use dasu("")
+    use dasu("Project commands:")
+    use dasu("  new    -N  <Name>     create new project")
+    use dasu("  clean  -C  [--bin] [--cache] [--all|-A] [--global]")
+    use dasu("  info   -Q            show project and environment info")
+    use dasu("  checkup              validate and repair owl.toml")
+    use dasu("  tree   [--all]       show dependency tree")
+    use dasu("  profile [--json]     build metrics")
+    use dasu("")
+    use dasu("Package commands:")
+    use dasu("  load  -L  <name>         add dependency to owl.toml")
+    use dasu("  load  -Lu <url>          add a package registry")
+    use dasu("  load  -Ll                list registries")
+    use dasu("  load  -Ls                sync registries")
+    use dasu("  load  -Lr <name>         remove registry")
+    use dasu("  install -S  <name> [ver] download and install package")
+    use dasu("  export -e  [--check|--dry-run]  package and sign")
+    use dasu("  gc                   garbage collect orphaned packages")
+    use dasu("")
+    use dasu("Global:")
+    use dasu("  -V, --version     Show version")
+    use dasu("  -h, --help        Show this help")
+}

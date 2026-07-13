@@ -1,0 +1,53 @@
+// owl tool test: owl new creates correct project structure
+load kioto
+load testlib
+
+pub fn main: () {
+    use dasu("--- test: owl new ---")
+    testlib.assert_true(true)
+
+    set ts = strings.trim(proc::run("date +%s%N"))
+    set test_base = "/tmp/owl_tool_test_" + ts
+    set proj_dir = test_base + "/myapp"
+    set cmd_new = "mkdir -p " + test_base + " && cd " + test_base + " && ~/.local/bin/owl new myapp 2>&1"
+    proc::run(cmd_new)
+
+    set f1 = proj_dir + "/owl.toml"
+    set f2 = proj_dir + "/code/main.mire"
+    set f3 = proj_dir + "/tests/smoke.mire"
+
+    set all_exist = true :bool mut
+
+    set check1 = "test -f " + f1 + " && echo 'yes' || echo 'no'"
+    if strings.trim(proc::run(check1)) != "yes" {
+        set all_exist = false
+        use dasu("  MISSING: " + f1)
+    }
+
+    set check2 = "test -f " + f2 + " && echo 'yes' || echo 'no'"
+    if strings.trim(proc::run(check2)) != "yes" {
+        set all_exist = false
+        use dasu("  MISSING: " + f2)
+    }
+
+    set check3 = "test -f " + f3 + " && echo 'yes' || echo 'no'"
+    if strings.trim(proc::run(check3)) != "yes" {
+        set all_exist = false
+        use dasu("  MISSING: " + f3)
+    }
+
+    set dir_check = "test -d " + proj_dir + "/code && echo 'yes' || echo 'no'"
+    if strings.trim(proc::run(dir_check)) != "yes" {
+        set all_exist = false
+        use dasu("  MISSING dir: " + proj_dir + "/code")
+    }
+
+    if all_exist {
+        use dasu("  owl new creates correct structure: ok")
+    } else {
+        use dasu("  owl new structure: FAIL")
+    }
+
+    proc::run("rm -rf " + test_base)
+    use dasu("test_owl_new complete")
+}

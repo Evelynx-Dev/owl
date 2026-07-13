@@ -1,0 +1,220 @@
+module registry
+load util
+load crypto
+load trust
+
+pub fn cmd_registry_add: (url :str) {
+    set tmp = crypto::crypto_tempdir("owl-reg")
+    if tmp == "" {
+        use dasu("  [FAIL]  could not create temp directory")
+        return
+    }
+
+    use proc::run("curl -sL -o \"" + tmp + "/registry.json\" \"" + url + "/registry.json\" 2>/dev/null || true")
+    set content = util::trim(fs::read(tmp + "/registry.json"))
+    use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
+    if content == "" {
+        use dasu("  [FAIL]  could not fetch " + url + "/registry.json")
+        return
+    }
+
+    set name = util::json_get_str(content "name")
+    if name == "" {
+        use dasu("  [FAIL]  registry.json: missing 'name'")
+        return
+    }
+
+    set protocol = util::json_get_int_str(content "protocol")
+    if protocol == "" {
+        use dasu("  [FAIL]  registry.json: missing 'protocol'")
+        return
+    }
+    if protocol != "1" {
+        use dasu("  [FAIL]  registry.json: unsupported protocol v" + protocol + " (expected 1)")
+        return
+    }
+
+    set pubkey = util::json_get_str(content "public-key")
+    if pubkey == "" {
+        use dasu("  [FAIL]  registry.json: missing 'public-key'")
+        return
+    }
+
+    set reg_dir = util::owl_home_registries()
+    set reg_path = reg_dir + "/" + name
+    set reg_json_path = reg_path + "/registry.json"
+    use util::mkdir_p(reg_dir)
+    if fs_exists(reg_path) {
+        use dasu("  [FAIL]  registry '" + name + "' already exists at " + reg_path)
+        return
+    }
+    use util::mkdir_p(reg_path)
+    use fs_write(reg_json_path content)
+
+    set fp = util::trim(proc::run("printf '%s' \"" + pubkey + "\" 2>/dev/null | sha256sum | cut -d' ' -f1 2>/dev/null || true"))
+    if fp == "" || len(fp) != 64 {
+        use dasu("  [WARN]  could not compute fingerprint for public key")
+    } else {
+        use dasu("  [INFO]  trusted key fingerprint: " + fp)
+        use trust::trust_trust(fp)
+    }
+
+    use dasu("  [OK]    registry '" + name + "' added")
+}
+
+pub fn cmd_registry_list: () {
+    set reg_dir = util::owl_home_registries()
+    if !fs_exists(reg_dir) {
+        use dasu("  no registries configured")
+        return
+    }
+
+    set out = util::trim(proc::run("ls -1 \"" + reg_dir + "\" 2>/dev/null || true"))
+    if out == "" {
+        use dasu("  no registries configured")
+        return
+    }
+    set entries = util::split(out "\n")
+    set ni = len(entries)
+    set found = false :bool mut
+    set i = 0 :i64 mut
+    while i < ni {
+        set entry = util::trim(util::list_get(entries i))
+        if entry != "" {
+            set reg_path = reg_dir + "/" + entry
+            if fs_exists(reg_path + "/registry.json") {
+                set content = fs::read(reg_path + "/registry.json")
+                set name = util::json_get_str(content "name") :str mut
+                if name == "" { set name = entry }
+                set protocol = util::json_get_int_str(content "protocol") :str mut
+                if protocol == "" { set protocol = "?" }
+                set status = "enabled" :str mut
+                if fs_exists(reg_path + "/.disabled") { set status = "disabled" }
+                set priority = "" :str mut
+                if fs_exists(reg_path + "/.priority") {
+                    set priority = util::trim(fs::read(reg_path + "/.priority"))
+                }
+
+                if found {
+                    use dasu("")
+                }
+                set found = true
+                set line = "  " + name + "  v" + protocol + "  [" + status + "]" :str mut
+                if priority != "" { set line = line + "  priority=" + priority }
+                use dasu(line)
+            }
+        }
+        set i += 1
+    }
+
+    if !found {
+        use dasu("  no registries configured")
+    }
+}
+
+pub fn cmd_registry_remove: (name :str) {
+    set reg_path = util::owl_home_registries() + "/" + name
+    if !fs_exists(reg_path) {
+        use dasu("  [FAIL]  registry '" + name + "' not found")
+        return
+    }
+    if !fs_exists(reg_path + "/registry.json") {
+        use dasu("  [FAIL]  '" + reg_path + "' is not a registry directory")
+        return
+    }
+    use util::rm_RF(reg_path)
+    use dasu("  [OK]    registry '" + name + "' removed")
+}
+
+pub fn cmd_registry_sync_one: (name :str, reg_path :str) {
+    if !fs_exists(reg_path + "/registry.json") {
+        use dasu("    [SKIP]  no registry.json")
+        return
+    }
+
+    set content = fs::read(reg_path + "/registry.json")
+    set url = util::json_get_str(content "url") :str mut
+    if url == "" {
+        set url = util::json_get_str(content "name")
+    }
+
+    set tmp = crypto::crypto_tempdir("owl-sync")
+    if tmp == "" {
+        use dasu("    [FAIL]  could not create temp directory")
+        return
+    }
+
+    use proc::run("curl -sL --fail -o \"" + tmp + "/index.toml\" \"" + url + "/index.toml\" 2>/dev/null || true")
+    set index_content = util::trim(fs::read(tmp + "/index.toml"))
+
+    if index_content == "" {
+        use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
+        use dasu("    [FAIL]  could not fetch index.toml from " + url)
+        return
+    }
+
+    set pubkey = util::json_get_str(content "public-key")
+    use proc::run("curl -sL --fail -o \"" + tmp + "/index.toml.sig\" \"" + url + "/index.toml.sig\" 2>/dev/null || true")
+    set sig_file = tmp + "/index.toml.sig"
+    set sig_size = util::trim(proc::run("stat -c%s \"" + sig_file + "\" 2>/dev/null || echo 0"))
+    if sig_size != "0" && pubkey != "" {
+        use dasu("    [INFO]  verifying index.toml signature...")
+        set idx_file = tmp + "/index.toml"
+        set verify_result = crypto::crypto_verify_ed25519_sigfile(pubkey idx_file sig_file)
+        if verify_result == "true" {
+            use dasu("    [OK]    signature valid")
+        } else {
+            use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
+            use dasu("    [FAIL]  index.toml signature verification failed")
+            return
+        }
+    } else {
+        if pubkey == "" {
+            use dasu("    [WARN]  no public-key in registry.json - skipping signature verification")
+        } else {
+            use dasu("    [WARN]  no index.toml.sig - skipping signature verification")
+        }
+    }
+
+    use fs_write(reg_path + "/index.toml" index_content)
+    use proc::run("printf '%s' \"$(date +%s)\" > \"" + reg_path + "/last_sync\" 2>/dev/null || true")
+    use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
+
+    use dasu("    [OK]    " + name + " synced")
+}
+
+pub fn cmd_registry_sync: () {
+    set reg_dir = util::owl_home_registries()
+    if !fs_exists(reg_dir) {
+        use dasu("  no registries configured")
+        return
+    }
+
+    set out = util::trim(proc::run("ls -1 \"" + reg_dir + "\" 2>/dev/null || true"))
+    if out == "" {
+        use dasu("  no registries configured")
+        return
+    }
+    set entries = util::split(out "\n")
+    set ni = len(entries)
+    set found = 0 :i64 mut
+    set i = 0 :i64 mut
+    while i < ni {
+        set entry = util::trim(util::list_get(entries i))
+        if entry != "" {
+            set reg_path = reg_dir + "/" + entry
+            if fs_exists(reg_path + "/registry.json") && !fs_exists(reg_path + "/.disabled") {
+                set found += 1
+                use dasu("  syncing " + entry + "...")
+                cmd_registry_sync_one(entry reg_path)
+            }
+        }
+        set i += 1
+    }
+
+    if found == 0 {
+        use dasu("  no enabled registries")
+    }
+}
+
+
