@@ -1,5 +1,55 @@
 # Owl Changelog
 
+## [0.16.2] - 2026-06-29
+
+### Added
+- `info --json`: machine-readable JSON output for CI/IDE integration.
+  Outputs project metadata, compiler info, LLVM version, ABI, language,
+  and dependency list as structured JSON.
+- `json_quote(str)` helper: wraps a string in double quotes,
+  replacing `json::quoted()` from kioto (see Known Issues below).
+
+### Known Issues (Mire / Kioto / libs)
+- `json::quoted()` from `kioto/ext/json` causes `free(): invalid pointer`
+  crash at runtime in all tested contexts.
+  → [mire-lang/libs#5](https://github.com/mire-lang/libs/issues/5)
+  → Use the custom `json_quote()` helper instead.
+- Mire runtime bug: `\n` character in string concatenation/comparison
+  inside loops can trigger `free(): invalid pointer`.
+  → [mire-lang/Avenys-rust#22](https://github.com/mire-lang/Avenys-rust/issues/22)
+- Compiler error E0005 "Assignment to undefined variable" with imprecise
+  source location when variables are declared inside `if` branches.
+  → [mire-lang/Avenys-rust#23](https://github.com/mire-lang/Avenys-rust/issues/23)
+
+## [0.16.1] - 2026-06-29
+
+### Changed
+- `checkup --fix` now requires explicit field arguments:
+  `owl checkup --fix <field> [<field> ...]` instead of blanket-fixing all missing
+  fields. The developer controls exactly which fields get default values.
+- `checkup --fix` without field names shows a usage hint listing all available fields.
+- Hint message updated to reference the field-specific syntax.
+
+## [0.16.0] - 2026-06-28
+
+### Added
+- Full `owl.toml` field validation in `checkup`: all 11 fields now checked
+  (`name`, `version`, `description`, `entry`, `profile`, `opt-level`,
+  `compiler`, `output`, `cache`, `sources`, `tests`)
+- Dependency count reporting: `checkup` counts `[dependencies]` entries
+  and warns if none configured
+- `checkup --fix` preserves all existing values when regenerating `owl.toml`
+
+### Changed
+- `checkup` output redesigned: shows every field with `[OK]`, `[FAIL]`, or `[WARN]`
+  instead of only showing failures
+- Non-existent source/test/cache directories show `[WARN]` instead of `[FAIL]`
+  (the build creates them automatically)
+
+### Fixed
+- `checkup` no longer silently omits project metadata fields
+- `checkup` correctly distinguishes missing fields from non-existent directories
+
 ## [0.14.0] - 2026-06-22
 
 ### Added

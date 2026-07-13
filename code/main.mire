@@ -8,6 +8,10 @@ pub fn rm_RF: (path :str) {
     use proc_run("rm -rf " + path)
 }
 
+fn json_quote: (s :str) :str {
+    return "\"" + s + "\""
+}
+
 pub fn toml_get: (file :str section :str key :str) :str {
     if !fs_exists(file) {
         return ""
@@ -81,271 +85,8 @@ pub fn toml_get: (file :str section :str key :str) :str {
     return ""
 }
 
-pub fn toml_keys: (file :str section :str) :str {
-    if !fs_exists(file) {
-        return ""
-    }
-
-    set content = fs_read(file)
-    set lines = strings::split(content "\n")
-    set n = len(lines)
-    set found_section = false :bool mut
-    set result = "" :str mut
-    set i = 0 :i64 mut
-
-    while i < n {
-        set raw_line = lists::get(lines i)
-        set line = strings::trim(raw_line)
-        set line_is_empty = line == ""
-
-        if line_is_empty {
-            set i += 1
-        } else {
-            set parts_hash = strings::split(line "#")
-            set raw_clean = lists::get(parts_hash 0)
-            set line_clean = strings::trim(raw_clean)
-            set clean_is_empty = line_clean == ""
-
-            if clean_is_empty {
-                set i += 1
-            } else {
-                set open = strings::split(line_clean "[")
-                set is_header = len(open) >= 2
-
-                if is_header {
-                    set close = strings::split(lists::get(open 1) "]")
-                    if len(close) >= 1 {
-                        set sec_name = strings::trim(lists::get(close 0))
-                        if sec_name == section {
-                            set found_section = true
-                        } else {
-                            if found_section { return result }
-                        }
-                    }
-                }
-
-                if found_section {
-                    set kv = strings::split(line_clean "=")
-                    set k_count = len(kv)
-                    if k_count >= 2 {
-                        set k = strings::trim(lists::get(kv 0))
-                        set skip_header = strings::startswith(k "[")
-                        if !skip_header {
-                            if result == "" {
-                                set result = k
-                            } else {
-                                set result = result + "\n" + k
-                            }
-                        }
-                    }
-                }
-
-                set i += 1
-            }
-        }
-    }
-
-    return result
-}
-
-pub fn warn_line: (tag :str msg :str) {
-    use dasu("warning[" + tag + "] " + msg)
-}
-
 pub fn error_line: (tag :str msg :str) {
     use dasu("error[" + tag + "] " + msg)
-}
-
-
-pub fn profile_show: (_as_json :bool _show_history :bool _compare :bool) {
-    if _as_json {
-        use dasu("{\"status\":\"ok\",\"show_history\":" + str(_show_history) + ",\"compare\":" + str(_compare) + "}")
-        return
-    }
-    use dasu("profile[OWL] -- Build Profile")
-    if _show_history {
-        use dasu("  history: enabled")
-    }
-    if _compare {
-        use dasu("  compare: enabled")
-    }
-    use dasu("+ profile complete")
-}
-
-fn find_mire_files: (dir :str) :str {
-    set result = "" :str mut
-    if !fs_exists(dir) { return result }
-    set dirs = dir :str mut
-    while dirs != "" {
-        set parts = strings::split(dirs "\n")
-        set d = strings::trim(lists::get(parts 0))
-        set dirs = "" :str mut
-        set k = 1 :i64 mut
-        while k < len(parts) {
-            set part = strings::trim(lists::get(parts k))
-            if part != "" {
-                if dirs == "" {
-                    set dirs = part
-                } else {
-                    set dirs = dirs + "\n" + part
-                }
-            }
-            set k += 1
-        }
-        if d == "" { continue }
-        set entries = fs_list(d)
-        set n = len(entries)
-        set i = 0 :i64 mut
-        while i < n {
-            set entry = strings::trim(lists::get(entries i))
-            if entry != "." && entry != ".." {
-                set full = d + "/" + entry
-                if fs_is_dir(full) {
-                    if entry != "lib" {
-                        if dirs == "" {
-                            set dirs = full
-                        } else {
-                            set dirs = dirs + "\n" + full
-                        }
-                    }
-                } else {
-                    if strings::endswith(entry ".mire") {
-                        if result == "" {
-                            set result = full
-                        } else {
-                            set result = result + "\n" + full
-                        }
-                    }
-                }
-            }
-            set i += 1
-        }
-    }
-    return result
-}
-
-fn scan_test_functions: (path :str) :str {
-    set result = "" :str mut
-    if !fs_exists(path) { return result }
-    set content = fs_read(path)
-    set lines = strings::split(content "\n")
-    set n = len(lines)
-    set i = 0 :i64 mut
-    while i < n {
-        set line = strings::trim(lists::get(lines i))
-        if strings::startswith(line "#!cfg::test") || strings::startswith(line "#!cfg::") {
-            set j = i + 1
-            if j < n {
-                set next_line = strings::trim(lists::get(lines j))
-                if strings::startswith(next_line "pub fn ") {
-                    set after_fn = strings::replace_first(next_line "pub fn " "")
-                    set colon_pos = strings::index_of(after_fn ":")
-                    if colon_pos >= 0 {
-                        set func_name = strings::trim(strings::substr(after_fn 0 colon_pos))
-                        if func_name != "" {
-                            if result == "" {
-                                set result = path + "|" + func_name
-                            } else {
-                                set result = result + "\n" + path + "|" + func_name
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        set i += 1
-    }
-    return result
-}
-
-fn scan_all_tests: (dir :str) :str {
-    set files = find_mire_files(dir)
-    if files == "" { return "" }
-    set file_list = strings::split(files "\n")
-    set result = "" :str mut
-    set total = len(file_list)
-    set i = 0 :i64 mut
-    while i < total {
-        set file = strings::trim(lists::get(file_list i))
-        if file != "" {
-            set found = scan_test_functions(file)
-            if found != "" {
-                if result == "" {
-                    set result = found
-                } else {
-                    set result = result + "\n" + found
-                }
-            }
-        }
-        set i += 1
-    }
-    return result
-}
-
-
-pub fn run_tests: (filter :str compiler_cmd :str) {
-    use dasu("")
-    use dasu("== owl test ==")
-    use dasu("")
-    set test_dir = toml_get("owl.toml" "paths" "tests") :str mut
-    if test_dir == "" { set test_dir = "tests" }
-    if !fs_exists(test_dir) {
-        use dasu("Error: '" + test_dir + "' not found")
-        return
-    }
-    use dasu("Scanning " + test_dir + " for #!cfg::test...")
-    set test_data = scan_all_tests(test_dir)
-    if test_data == "" {
-        use dasu("No tests found.")
-        return
-    }
-    set records = strings::split(test_data "\n")
-    set total = len(records)
-    set passed = 0 :i64 mut
-    set failed = 0 :i64 mut
-    set ran = 0 :i64 mut
-    set i = 0 :i64 mut
-    while i < total {
-        set rec = strings::trim(lists::get(records i))
-        if rec != "" {
-            set parts = strings::split(rec "|")
-            if len(parts) >= 2 {
-                set file = strings::trim(lists::get(parts 0))
-                set func = strings::trim(lists::get(parts 1))
-                if filter != "" {
-                    set combined = func + " " + file
-                    if len(strings::split(combined filter)) <= 1 {
-                        set i += 1
-                        continue
-                    }
-                }
-                set ran = ran + 1
-                set base = file :str mut
-                if strings::endswith(base ".mire") {
-                    set base = strings::replace(base ".mire" "")
-                }
-                set stem_parts = strings::split(base "/")
-                set stem = lists::get(stem_parts len(stem_parts) - 1)
-                set display = stem + "." + func
-                use dasu("test " + display + " ...")
-                proc_run(compiler_cmd + " build " + file + " --debug -O0 2>/dev/null")
-                set bin_path = "bin/debug/" + stem
-                if fs_exists(bin_path) {
-                    proc_run("./" + bin_path)
-                    set passed = passed + 1
-                    use dasu("  ok")
-                } else {
-                    set failed = failed + 1
-                    use dasu("  FAILED (build error)")
-                }
-            }
-        }
-        set i += 1
-    }
-    use dasu("")
-    set status = "ok" :str mut
-    if failed > 0 { set status = "FAILED" }
-    use dasu("test result: " + status + ". " + str(passed) + " passed; " + str(failed) + " failed; " + str(ran) + " total")
 }
 
 extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
@@ -353,7 +94,7 @@ extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 extern fn rt_string_to_i64: (value :str) :i64 lib "c"
 extern fn rt_i64_to_string: (value :i64) :str lib "c"
 
-fn owl_version: () :str { return "0.14.1" }
+fn owl_version: () :str { return "0.16.2" }
 fn compiler_version: () :str {
     set v = strings::trim(proc_run("mire --version"))
     if v != "" { return v }
@@ -364,23 +105,6 @@ fn has_project: () :bool {
     return fs_exists("owl.toml")
 }
 
-fn config_get: (key :str fallback :str) :str {
-    set parts = strings::split(key ".")
-    if len(parts) < 2 { return fallback }
-    set section = lists::get(parts 0)
-    set field = lists::get(parts 1)
-    set val = toml_get("owl.toml" section field)
-    if val != "" { return val }
-    return fallback
-}
-
-fn resolve_path: (key :str fallback :str) :str {
-    if !has_project() { return fallback }
-    set val = config_get(key "")
-    if val != "" { return val }
-    return fallback
-}
-
 fn compiler_cmd: () :str {
     if has_project() {
         set cmd = toml_get("owl.toml" "build" "compiler")
@@ -389,326 +113,26 @@ fn compiler_cmd: () :str {
     return "mire"
 }
 
-fn project_name: () :str {
+fn config_required: (section :str key :str) :str {
     if has_project() {
-        set n = toml_get("owl.toml" "project" "name")
-        if n != "" { return n }
-    }
-    return "<unknown>"
-}
-
-fn project_version: () :str {
-    if has_project() {
-        set v = toml_get("owl.toml" "project" "version")
-        if v != "" { return v }
-    }
-    return "<unknown>"
-}
-
-fn project_description: () :str {
-    if has_project() {
-        set d = toml_get("owl.toml" "project" "description")
-        if d != "" { return d }
+        set s = section
+        set k = key
+        set val = toml_get("owl.toml" s k)
+        if val == "" {
+            use error_line("OWL0003" "missing [" + section + "]." + key + " in owl.toml")
+            use dasu("")
+            use dasu("  Run 'owl checkup --fix' to regenerate owl.toml with defaults")
+            proc_exit(1)
+        }
+        return val
     }
     return ""
-}
-
-fn owl_home_dir: () :str {
-    set h = env_get("HOME")
-    if h != "" { return h }
-    return "/home/owl"
-}
-
-fn owl_root: () :str {
-    return owl_home_dir() + "/.owl"
-}
-
-fn ensure_owl_home: () {
-    set root = owl_root()
-    use proc_run("mkdir -p " + root + "/modules && mkdir -p " + root + "/registry && mkdir -p " + root + "/store && mkdir -p " + root + "/tmp")
-    if !fs_exists(root + "/config.toml") {
-        use fs_write(root + "/config.toml" "[owl]\nversion = \"0.1.0\"\n\n[build]\ncurrent = \"B1.001\"\n\n[paths]\nmodules = \"modules\"\n")
-    }
-}
-
-fn registry_dir: () :str { return owl_root() + "/registry" }
-fn sync_tmp_dir: () :str { return owl_root() + "/tmp" }
-
-fn current_build: () :str {
-    set root = owl_root()
-    if fs_exists(root + "/config.toml") {
-        set b = toml_get(root + "/config.toml" "build" "current")
-        if b != "" { return b }
-    }
-    return "B1.001"
-}
-
-fn registry_file: (pkg :str) :str {
-    return owl_root() + "/registry/" + pkg + ".toml"
-}
-
-fn store_pkg_dir: (pkg :str) :str {
-    return owl_root() + "/store/" + pkg + "/" + current_build()
-}
-
-fn registry_read: (pkg :str field :str) :str {
-    set f = registry_file(pkg)
-    if !fs_exists(f) { return "" }
-    return toml_get(f "registry" field)
-}
-
-fn registry_write: (pkg :str source_url :str source_path :str sha256 :str sha512 :str installed_build :str last_commit :str) {
-    set p = pkg
-    set content = "[registry]\nname = \"" + pkg + "\"\nsource_url = \"" + source_url + "\"\nsource_path = \"" + source_path + "\"\nsha256 = \"" + sha256 + "\"\nsha512 = \"" + sha512 + "\"\ninstalled_build = \"" + installed_build + "\"\nlast_commit = \"" + last_commit + "\"\n"
-    use fs_write(registry_file(p) content)
-}
-
-fn registry_delete: (pkg :str) {
-    set f = registry_file(pkg)
-    if fs_exists(f) { use fs_drop(f) }
-}
-
-fn registry_list: () :str {
-    set dir = registry_dir()
-    if !fs_exists(dir) { return "" }
-    set entries = fs_list(dir)
-    set n = rt_vec_len(entries)
-    set result = "" :str mut
-    set i = 0 :i64 mut
-    while i < n {
-        set e = rt_vec_get_str(entries i)
-        if e != "." && e != ".." && strings::endswith(e ".toml") {
-            set pkg = strings::replace(e ".toml" "")
-            if result == "" {
-                set result = pkg
-            } else {
-                set result = result + "\n" + pkg
-            }
-        }
-        set i += 1
-    }
-    return result
-}
-
-
-fn compute_tree_sha256: (dir :str) :str {
-    set hash = strings::trim(proc_run("cd " + dir + " && find . -type f | sort | xargs sha256sum | sha256sum"))
-    set parts = strings::split(hash " ")
-    return strings::trim(rt_vec_get_str(parts 0))
-}
-
-fn validate_owl_toml: (owl_toml_path :str) :str {
-    if !fs_exists(owl_toml_path) { return "owl.toml not found" }
-    set path_a = owl_toml_path
-    set pkg_name = toml_get(path_a "project" "name")
-    if pkg_name == "" { return "missing [project].name" }
-    set path_b = owl_toml_path
-    set pkg_version = toml_get(path_b "project" "version")
-    if pkg_version == "" { return "missing [project].version" }
-    set path_c = owl_toml_path
-    set exports_list = toml_keys(path_c "exports")
-    if exports_list == "" { return "missing [exports] section - security gate rejected" }
-    return ""
-}
-
-fn validate_export_paths: (pkg_dir :str owl_toml_path :str) :str {
-    set otp = owl_toml_path
-    set exports = toml_keys(otp "exports")
-    if exports == "" { return "" }
-    set lines = strings::split(exports "\n")
-    set n = rt_vec_len(lines)
-    set err_acc = "" :str mut
-    set i = 0 :i64 mut
-    while i < n {
-        set key = strings::trim(rt_vec_get_str(lines i))
-        if key != "" {
-            set otp2 = owl_toml_path
-            set k = key
-            set v = toml_get(otp2 "exports" k)
-            set pd = pkg_dir
-            set full_file = pd + "/" + v + ".mire"
-            set pd2 = pkg_dir
-            set dir_mod = pd2 + "/" + v + "/mod.mire"
-            if !fs_exists(full_file) && !fs_exists(dir_mod) {
-                set ei = err_acc
-                set k2 = key
-                set v2 = v
-                set err_acc = ei + "export '" + k2 + "' -> '" + v2 + "' not found\n"
-            }
-        }
-        set i += 1
-    }
-    return err_acc
-}
-
-fn find_package_dirs: (repo_root :str) :str {
-    if !fs_exists(repo_root) { return "" }
-    set entries = fs_list(repo_root)
-    set n = rt_vec_len(entries)
-    set result = "" :str mut
-    set i = 0 :i64 mut
-    while i < n {
-        set e = strings::trim(rt_vec_get_str(entries i))
-        if e != "." && e != ".." && e != ".git" {
-            set full = repo_root + "/" + e
-            if fs_is_dir(full) {
-                set owl_toml = full + "/owl.toml"
-                if fs_exists(owl_toml) {
-                    if result == "" {
-                        set result = e
-                    } else {
-                        set result = result + "\n" + e
-                    }
-                }
-            }
-        }
-        set i += 1
-    }
-    return result
-}
-
-fn sync_one_pkg: (pkg :str force :bool) {
-    set pn = pkg
-    use dasu("")
-    use dasu("== syncing: " + pn + " ==")
-
-    set p1 = pkg
-    set src_url = registry_read(p1 "source_url") :str mut
-    set p2 = pkg
-    set src_path = registry_read(p2 "source_path") :str mut
-
-    if src_url == "" {
-        set p3 = pkg
-        use error_line("OWL0030" "package '" + p3 + "' not in registry. Use 'owl import-repo <url>' first.")
-        return
-    }
-
-    if src_path == "" {
-        set p4 = pkg
-        set src_path = p4
-    }
-
-    set stamp = strings::trim(proc_run("date +%s"))
-    set tmp_clone = sync_tmp_dir() + "/" + stamp :str mut
-    use proc_run("rm -rf " + tmp_clone)
-
-    set tc1 = tmp_clone
-    set clone_out = proc_run("git clone " + src_url + " " + tc1 + " 2>&1")
-    set tc2 = tmp_clone
-    if !fs_exists(tc2 + "/.git") {
-        set tc3 = tmp_clone
-        use error_line("OWL0031" "failed to clone " + src_url + ": " + clone_out)
-        use proc_run("rm -rf " + tc3)
-        return
-    }
-    use dasu("  cloned " + src_url)
-
-    set tc4 = tmp_clone
-    set commit = strings::trim(proc_run("git -C " + tc4 + " rev-parse HEAD"))
-
-    set tc5 = tmp_clone
-    set pkg_dir = tc5 + "/" + src_path
-    set owl_toml = pkg_dir + "/owl.toml"
-
-    set ot1 = owl_toml
-    set validation_err = validate_owl_toml(ot1)
-    if validation_err != "" {
-        set p5 = pkg
-        set tc6 = tmp_clone
-        use error_line("OWL0032" p5 + ": " + validation_err)
-        use proc_run("rm -rf " + tc6)
-        return
-    }
-    use dasu("  [project] + [exports] validated")
-
-    set pd1 = pkg_dir
-    set ot2 = owl_toml
-    set export_errs = validate_export_paths(pd1 ot2)
-    if export_errs != "" {
-        set err_lines = strings::split(export_errs "\n")
-        set en = rt_vec_len(err_lines)
-        set ei = 0 :i64 mut
-        while ei < en {
-            set em = strings::trim(rt_vec_get_str(err_lines ei))
-            if em != "" { use error_line("OWL0033" em) }
-            set ei += 1
-        }
-        set tc7 = tmp_clone
-        use proc_run("rm -rf " + tc7)
-        return
-    }
-    use dasu("  export paths verified")
-
-    set pd2 = pkg_dir
-    set sha256 = compute_tree_sha256(pd2)
-    use dasu("  sha256: " + sha256)
-
-    set p6 = pkg
-    set dest = store_pkg_dir(p6) :str mut
-    set d1 = dest
-    use proc_run("rm -rf " + d1)
-    set d2 = dest
-    use mkdir_p(d2)
-    set pd3 = pkg_dir
-    set d3 = dest
-    use proc_run("cp -R " + pd3 + "/. " + d3)
-    set d4 = dest
-    use dasu("  installed at " + d4)
-
-    set p7 = pkg
-    set s1 = src_url
-    set s2 = src_path
-    set sh = sha256
-    set cb = current_build()
-    set cm = commit
-    use registry_write(p7 s1 s2 sh "" cb cm)
-    set tc8 = tmp_clone
-    use proc_run("rm -rf " + tc8)
-    set p8 = pkg
-    use dasu("  sync complete for " + p8)
-}
-
-fn check_print_warning_summary: (file :str out :str strict :str) :str {
-    set _lines = strings::split(out "\n")
-    set total = 0 :i64 mut
-    set w28 = 0 :i64 mut
-    set w29 = 0 :i64 mut
-    set w30 = 0 :i64 mut
-    set w31 = 0 :i64 mut
-    set w32 = 0 :i64 mut
-    set w33 = 0 :i64 mut
-    set n = rt_vec_len(_lines)
-    set i = 0 :i64 mut
-    while i < n {
-        set line = rt_vec_get_str(_lines i)
-        if len(strings::split(line "warning[")) > 1 { set total += 1 }
-        if len(strings::split(line "warning[W0028]")) > 1 { set w28 += 1 }
-        if len(strings::split(line "warning[W0029]")) > 1 { set w29 += 1 }
-        if len(strings::split(line "warning[W0030]")) > 1 { set w30 += 1 }
-        if len(strings::split(line "warning[W0031]")) > 1 { set w31 += 1 }
-        if len(strings::split(line "warning[W0032]")) > 1 { set w32 += 1 }
-        if len(strings::split(line "warning[W0033]")) > 1 { set w33 += 1 }
-        set i += 1
-    }
-    set lifecycle = w28 + w29 + w30 + w31 + w32 + w33
-
-    use dasu("check[OWL] " + file)
-    use dasu("  total warnings: " + str(total))
-    use dasu("  lifecycle warnings: " + str(lifecycle))
-    if strict == "1" && total > 0 {
-        use dasu("  strict: failed")
-    } else {
-        use dasu("  strict: pass")
-    }
-    return str(total) + "|" + str(lifecycle)
 }
 
 fn compile_pipeline: (args :vec[str] is_run :bool) {
-    # All configuration from owl.toml — no hardcoded defaults.
     set mire = compiler_cmd()
     set is_proj = has_project()
 
-    # Parse CLI flags first
     set n = rt_vec_len(args)
     set i = 2 :i64 mut
     set cli_file = "" :str mut
@@ -742,7 +166,6 @@ fn compile_pipeline: (args :vec[str] is_run :bool) {
     }
 
     if !is_proj {
-        # Standalone file — delegate directly to mire
         if cli_file == "" {
             if n > 2 { set cli_file = rt_vec_get_str(args 2) }
             if n > 1 { set cli_file = rt_vec_get_str(args 1) }
@@ -760,38 +183,29 @@ fn compile_pipeline: (args :vec[str] is_run :bool) {
         return
     }
 
-    # Project mode — read everything from owl.toml
-    set entry = toml_get("owl.toml" "project" "entry")
-    if entry == "" {
-        use error_line("OWL0003" "owl.toml: [project].entry is required")
-        return
-    }
+    set entry = config_required("project" "entry")
     set file = entry :str mut
     if cli_file != "" { set file = cli_file }
 
-    set profile = toml_get("owl.toml" "build" "profile") :str mut
-    if profile == "" { set profile = "debug" }
-    set opt = toml_get("owl.toml" "build" "opt-level") :str mut
-    if opt == "" { set opt = "0" }
+    set profile = config_required("build" "profile") :str mut
+    set opt = config_required("build" "opt-level") :str mut
     if cli_profile != "" { set profile = cli_profile }
     if cli_opt != "" { set opt = cli_opt }
 
-    set out_dir = toml_get("owl.toml" "paths" "output") :str mut
-    if out_dir == "" { set out_dir = "bin" }
-    set cache_dir = toml_get("owl.toml" "paths" "cache") :str mut
-    if cache_dir == "" { set cache_dir = "bin/.cache" }
+    set out_dir = config_required("paths" "output") :str mut
+    set cache_dir = config_required("paths" "cache") :str mut
 
     if !fs_exists(file) {
         use error_line("OWL0002" "input not found: " + file)
         return
     }
 
-    use mkdir_p(cache_dir)
-    use mkdir_p(out_dir)
+    set cache = cache_dir
+    set output = out_dir
+    use mkdir_p(cache)
+    use mkdir_p(output)
 
-    # Re-read out_dir from config since it was consumed by mkdir_p
-    set out_dir2 = toml_get("owl.toml" "paths" "output") :str mut
-    if out_dir2 == "" { set out_dir2 = "bin" }
+    set out_dir2 = config_required("paths" "output")
 
     set build_cmd = mire :str mut
     set build_cmd = build_cmd + " build " + file
@@ -805,17 +219,17 @@ fn compile_pipeline: (args :vec[str] is_run :bool) {
         return
     }
 
-    # is_run: build first, then spawn + wait binary
     set build_out = proc_run(build_cmd)
     use dasu(build_out)
 
-    # Compute binary path
     set name = entry :str mut
+    if cli_file != "" { set name = cli_file }
     if strings::endswith(name ".mire") {
         set name = strings::replace(name ".mire" "")
     }
     set parts = strings::split(name "/")
-    set name = rt_vec_get_str(parts rt_vec_len(parts) - 1)
+    set name = lists::get(parts len(parts) - 1)
+
     set bin = "./" + out_dir2 + "/" + profile + "/" + name :str mut
 
     use dasu("")
@@ -850,189 +264,358 @@ fn cmd_new: (name :str) {
     use dasu("Project created: " + n8)
 }
 
-fn upsert_manifest_dependency: (file :str name :str entry :str) {
-    if !fs_exists(file) {
-        use fs_write(file, "[owl]\nversion = \"1.0.0\"\n\n[dependencies]\n" + entry + "\n")
+fn regenerate_owl_toml: (fields :str) {
+    if !has_project() {
+        use dasu("No owl.toml found in the current directory")
         return
     }
 
-    set content = fs_read(file)
-    if content == "" {
-        use fs_write(file, "[owl]\nversion = \"1.0.0\"\n\n[dependencies]\n" + entry + "\n")
-        return
-    }
+    set n = toml_get("owl.toml" "project" "name") :str mut
+    if n == "" && strings::contains(fields "name") { set n = "myproject" }
+    set v = toml_get("owl.toml" "project" "version") :str mut
+    if v == "" && strings::contains(fields "version") { set v = "0.1.0" }
+    set d = toml_get("owl.toml" "project" "description") :str mut
+    if d == "" && strings::contains(fields "description") { set d = "" }
+    set e = toml_get("owl.toml" "project" "entry") :str mut
+    if e == "" && strings::contains(fields "entry") { set e = "code/main.mire" }
+    set comp = toml_get("owl.toml" "build" "compiler") :str mut
+    if comp == "" && strings::contains(fields "compiler") { set comp = "mire" }
+    set p = toml_get("owl.toml" "build" "profile") :str mut
+    if p == "" && strings::contains(fields "profile") { set p = "debug" }
+    set o = toml_get("owl.toml" "build" "opt-level") :str mut
+    if o == "" && strings::contains(fields "opt-level") { set o = "0" }
+    set src = toml_get("owl.toml" "paths" "sources") :str mut
+    if src == "" && strings::contains(fields "sources") { set src = "code" }
+    set t = toml_get("owl.toml" "paths" "tests") :str mut
+    if t == "" && strings::contains(fields "tests") { set t = "tests" }
+    set out = toml_get("owl.toml" "paths" "output") :str mut
+    if out == "" && strings::contains(fields "output") { set out = "bin" }
+    set cache = toml_get("owl.toml" "paths" "cache") :str mut
+    if cache == "" && strings::contains(fields "cache") { set cache = "bin/.cache" }
 
-    set _lines = strings::split(content "\n")
-    set out = "" :str mut
-    set in_deps = false :bool mut
-    set inserted = false :bool mut
-    set dep_prefix = name + " = " :str mut
-
-    set n = rt_vec_len(_lines)
-    set i = 0 :i64 mut
-    while i < n {
-        set line = rt_vec_get_str(_lines i)
-        set trimmed = strings::trim(line)
-        if trimmed == "[dependencies]" {
-            set in_deps = true
-            set out = out + line + "\n" + entry + "\n"
-            set inserted = true
-        } else {
-            if in_deps {
-                if strings::startswith(trimmed "[") {
-                    set in_deps = false
-                    set out = out + line + "\n"
-                } else {
-                    if !strings::startswith(trimmed dep_prefix) {
-                        set out = out + line + "\n"
-                    }
-                }
-            } else {
-                set out = out + line + "\n"
-            }
-        }
-        set i += 1
-    }
-
-    if !inserted {
-        if out != "" && !strings::endswith(out "\n") {
-            set out = out + "\n"
-        }
-        set out = out + "\n[dependencies]\n" + entry + "\n"
-    }
-
-    use fs_write(file, out)
+    use fs_write("owl.toml" "[project]\nname = \"" + n + "\"\nversion = \"" + v + "\"\ndescription = \"" + d + "\"\nentry = \"" + e + "\"\n\n[build]\ncompiler = \"" + comp + "\"\nprofile = \"" + p + "\"\nopt-level = " + o + "\n\n[paths]\nsources = \"" + src + "\"\ntests = \"" + t + "\"\noutput = \"" + out + "\"\ncache = \"" + cache + "\"\n\n[dependencies]\n")
+    use dasu("  [FIX]  owl.toml: regenerated with defaults for: " + fields)
 }
 
-fn cmd_add: (args :vec[str]) {
-    set n = rt_vec_len(args)
-    if n < 3 {
-        use dasu("Usage: owl add <name> [--version <ver>] [--path <path>]")
-        return
-    }
-    set mod_name = rt_vec_get_str(args 2)
-    if strings::trim(mod_name) == "" {
-        use dasu("Error: module name cannot be empty")
-        return
-    }
-    set version = "" :str mut
-    set path = "" :str mut
-
-    set i = 3 :i64 mut
-    while i < n {
-        set a = rt_vec_get_str(args i)
-        if a == "--version" {
-            set i += 1
-            if i < n { set version = rt_vec_get_str(args i) }
-        } else {
-            if a == "--path" {
-                set i += 1
-                if i < n { set path = rt_vec_get_str(args i) }
-            }
-        }
-        set i += 1
-    }
-
-    set v = ""
-    if v != "" {
-        use dasu("Error: " + v)
-        return
-    }
-
-    ensure_owl_home()
-
-    set owl_target = "~/.owl/modules/" + mod_name
-    set module_ready = false :bool mut
-    if path != "" {
-        set full_path = path
-        if !fs_exists(full_path) {
-            use dasu("Error: source path not found: " + full_path)
-            return
-        }
-        use proc_run("rm -rf " + owl_target)
-        if fs_is_dir(full_path) {
-            use proc_run("mkdir -p ~/.owl/modules && cp -R " + full_path + "/. " + owl_target)
-        } else {
-            use proc_run("mkdir -p " + owl_target)
-            use fs_write(owl_target + "/lib.mire" fs_read(full_path))
-        }
-        set module_ready = true
-    } else {
-        if fs_exists(owl_target + "/lib.mire") {
-            set module_ready = true
-        }
-    }
-
-    set module_manifest = strings::replace(mod_name "" "")
-    set dep_entry = "" :str mut
-    if version != "" && path != "" {
-        set dep_entry = module_manifest + " = { version = \"" + version + "\", path = \"" + path + "\" }"
-    } else {
-        if version != "" {
-            set dep_entry = module_manifest + " = \"" + version + "\""
-        } else {
-            if path != "" {
-                set dep_entry = module_manifest + " = { path = \"" + path + "\" }"
-            } else {
-                set dep_entry = module_manifest + " = \"latest\""
-            }
-        }
-    }
-    upsert_manifest_dependency("owl.toml" module_manifest dep_entry)
-
-    if path != "" {
-        use dasu("materialized " + mod_name + " at " + owl_target)
-    } else {
-        if module_ready {
-            use dasu("added dependency: " + mod_name + " (available in ~/.owl/modules)")
-        } else {
-            use warn_line("OWL0011" "dependency registered but not materialized: " + mod_name)
-            use dasu("added dependency: " + mod_name)
-        }
-    }
-}
-
-fn cmd_build: (args :vec[str]) {
-    compile_pipeline(args false)
-}
-
-fn cmd_run: (args :vec[str]) {
-    compile_pipeline(args true)
-}
-
-fn cmd_check: (args :vec[str]) {
-    set default_file = "code/main.mire" :str mut
-    if fs_exists("owl.toml") {
-        set entry = toml_get("owl.toml" "project" "entry")
-        if entry != "" { set default_file = entry }
-    }
-    set file = default_file :str mut
-    set all = "0" :str mut
-    set strict = "0" :str mut
-    set deny = "" :str mut
+fn cmd_checkup: (args :vec[str]) {
+    set do_fix = false :bool mut
+    set fix_fields = "" :str mut
     set n = rt_vec_len(args)
     set i = 2 :i64 mut
     while i < n {
         set a = rt_vec_get_str(args i)
-        if a == "--all" {
-            set all = "1"
+        if a == "--fix" {
+            set do_fix = true
         } else {
-            if a == "--strict" {
-                set strict = "1"
-                set all = "1"
+            if do_fix {
+                if fix_fields == "" {
+                    set fix_fields = a
+                } else {
+                    set fix_fields = fix_fields + " " + a
+                }
+            }
+        }
+        set i += 1
+    }
+
+    if do_fix && fix_fields == "" {
+        use dasu("")
+        use dasu("  [HINT] usage: owl checkup --fix <field> [<field> ...]")
+        use dasu("         fields: name, version, description, entry, profile,")
+        use dasu("                 opt-level, compiler, output, cache, sources, tests")
+        use dasu("         example: owl checkup --fix name version entry profile")
+        set do_fix = false
+    }
+
+    set all_ok = true :bool mut
+
+    # ── Compiler ────────────────────────────────────────────────────────
+    set compiler_out = strings::trim(proc_run("mire --version 2>&1 || true"))
+    if compiler_out == "" {
+        use dasu("  [FAIL] mire: not found")
+        use dasu("         install mire (Avenys) to compile projects")
+        set all_ok = false
+    } else {
+        set lines = strings::split(compiler_out "\n")
+        set first = lists::get(lines 0)
+        use dasu("  [OK]   mire: " + first)
+    }
+
+    # ── Project ─────────────────────────────────────────────────────────
+    use dasu("")
+    if has_project() {
+        set toml_valid = true :bool mut
+
+        set name = toml_get("owl.toml" "project" "name")
+        if name == "" {
+            use dasu("  [FAIL] [project].name: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [project].name: " + name)
+        }
+
+        set ver = toml_get("owl.toml" "project" "version")
+        if ver == "" {
+            use dasu("  [FAIL] [project].version: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [project].version: " + ver)
+        }
+
+        set desc = toml_get("owl.toml" "project" "description")
+        if desc == "" {
+            use dasu("  [FAIL] [project].description: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [project].description: " + desc)
+        }
+
+        set entry = toml_get("owl.toml" "project" "entry")
+        if entry == "" {
+            use dasu("  [FAIL] [project].entry: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(entry) {
+                use dasu("  [OK]   [project].entry: " + entry + "  ->  exists")
             } else {
-                if a == "--deny" {
-                    set i += 1
-                    if i < n {
-                        if deny == "" {
-                            set deny = rt_vec_get_str(args i)
+                use dasu("  [FAIL] [project].entry: " + entry + "  ->  not found")
+                set toml_valid = false
+            }
+        }
+
+        set profile = toml_get("owl.toml" "build" "profile")
+        if profile == "" {
+            use dasu("  [FAIL] [build].profile: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [build].profile: " + profile)
+        }
+
+        set opt = toml_get("owl.toml" "build" "opt-level")
+        if opt == "" {
+            use dasu("  [FAIL] [build].opt-level: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [build].opt-level: " + opt)
+        }
+
+        set compiler = toml_get("owl.toml" "build" "compiler")
+        if compiler == "" {
+            use dasu("  [WARN] [build].compiler: missing (will default to 'mire')")
+        } else {
+            use dasu("  [OK]   [build].compiler: " + compiler)
+        }
+
+        set out_dir = toml_get("owl.toml" "paths" "output")
+        if out_dir == "" {
+            use dasu("  [FAIL] [paths].output: missing")
+            set toml_valid = false
+        } else {
+            use dasu("  [OK]   [paths].output: " + out_dir)
+        }
+
+        set cache_dir = toml_get("owl.toml" "paths" "cache")
+        if cache_dir == "" {
+            use dasu("  [FAIL] [paths].cache: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(cache_dir) {
+                use dasu("  [OK]   [paths].cache: " + cache_dir + "  ->  exists")
+            } else {
+                use dasu("  [WARN] [paths].cache: " + cache_dir + "  ->  will be created on next build")
+            }
+        }
+
+        set sources = toml_get("owl.toml" "paths" "sources")
+        if sources == "" {
+            use dasu("  [FAIL] [paths].sources: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(sources) {
+                use dasu("  [OK]   [paths].sources: " + sources + "  ->  exists")
+            } else {
+                use dasu("  [WARN] [paths].sources: " + sources + "  ->  will be created on next build")
+            }
+        }
+
+        set tests = toml_get("owl.toml" "paths" "tests")
+        if tests == "" {
+            use dasu("  [FAIL] [paths].tests: missing")
+            set toml_valid = false
+        } else {
+            if fs_exists(tests) {
+                use dasu("  [OK]   [paths].tests: " + tests + "  ->  exists")
+            } else {
+                use dasu("  [WARN] [paths].tests: " + tests + "  ->  will be created on next build")
+            }
+        }
+
+        # ── Dependencies ─────────────────────────────────────────────
+        use dasu("")
+        set content = fs_read("owl.toml")
+        set dep_lines = strings::split(content "\n")
+        set dl_n = len(dep_lines)
+        set in_deps = false :bool mut
+        set dep_count = 0 :i64 mut
+        set di = 0 :i64 mut
+        while di < dl_n {
+            set drline = lists::get(dep_lines di)
+            set dline = strings::trim(drline)
+            set dparts_hash = strings::split(dline "#")
+            set dclean = strings::trim(lists::get(dparts_hash 0))
+            if dclean != "" {
+                set dparts_br = strings::split(dclean "[")
+                if len(dparts_br) >= 2 {
+                    set dclose = strings::split(lists::get(dparts_br 1) "]")
+                    if len(dclose) >= 1 {
+                        set dsec = strings::trim(lists::get(dclose 0))
+                        if dsec == "dependencies" {
+                            set in_deps = true
                         } else {
-                            set deny = deny + "," + rt_vec_get_str(args i)
+                            if in_deps { set di = dl_n }
                         }
                     }
                 } else {
-                    if !strings::startswith(a "-") && file == default_file {
-                        set file = a
+                    if in_deps {
+                        set dkv = strings::split(dclean "=")
+                        if len(dkv) >= 2 {
+                            set dep_count += 1
+                        }
+                    }
+                }
+            }
+            set di += 1
+        }
+        if dep_count == 0 {
+            use dasu("  [WARN] [dependencies]: no dependencies configured")
+        } else {
+            use dasu("  [OK]   [dependencies]: " + rt_i64_to_string(dep_count) + " configured")
+        }
+
+        if do_fix {
+            use dasu("")
+            regenerate_owl_toml(fix_fields)
+        }
+
+        if !toml_valid {
+            set all_ok = false
+        }
+    } else {
+        use dasu("  [FAIL] project: no owl.toml found")
+        set all_ok = false
+    }
+
+    # ── Summary ─────────────────────────────────────────────────────────
+    use dasu("")
+    if all_ok {
+        use dasu("  [OK]   all checks passed")
+    } else {
+        if !do_fix {
+            use dasu("  [HINT] run 'owl checkup --fix <field> [<field> ...]' to repair specific fields")
+            use dasu("         see 'owl checkup --help' or check the docs for available fields")
+        }
+    }
+}
+
+fn cmd_check: (args :vec[str]) {
+    if !has_project() {
+        use dasu("  [FAIL]  no owl.toml found")
+        return
+    }
+
+    set content = fs_read("owl.toml")
+    set lines = strings::split(content "\n")
+    set n = len(lines)
+
+    use dasu("  checking dependencies ...")
+    use dasu("")
+
+    set in_deps = false :bool mut
+    set found_any = false :bool mut
+    set i = 0 :i64 mut
+
+    while i < n {
+        set rline = lists::get(lines i)
+        set line = strings::trim(rline)
+
+        set parts_hash = strings::split(line "#")
+        set clean = strings::trim(lists::get(parts_hash 0))
+
+        if clean != "" {
+            set parts_br = strings::split(clean "[")
+            if len(parts_br) >= 2 {
+                set close = strings::split(lists::get(parts_br 1) "]")
+                if len(close) >= 1 {
+                    set sec = strings::trim(lists::get(close 0))
+                    if sec == "dependencies" {
+                        set in_deps = true
+                    } else {
+                        if in_deps { break }
+                    }
+                }
+            } else {
+                if in_deps {
+                    set kv = strings::split(clean "=")
+                    if len(kv) >= 2 {
+                        set key = strings::trim(lists::get(kv 0))
+                        set raw_val = lists::get(kv 1) :str mut
+                        set j = 2 :i64 mut
+                        while j < len(kv) {
+                            set raw_val = raw_val + "=" + lists::get(kv j)
+                            set j += 1
+                        }
+
+                        set path_val = "" :str mut
+                        set ver_val = "" :str mut
+
+                        set tbl = strings::trim(raw_val) :str mut
+                        if strings::startswith(tbl "{") {
+                            set tbl = strings::substr(tbl 1 len(tbl) - 1)
+                        }
+                        if strings::endswith(tbl "}") {
+                            set tbl = strings::substr(tbl 0 len(tbl) - 1)
+                        }
+                        set tbl = strings::trim(tbl)
+
+                        set fields = strings::split(tbl ",")
+                        set k = 0 :i64 mut
+                        while k < len(fields) {
+                            set f = strings::trim(lists::get(fields k))
+                            set fkv = strings::split(f "=")
+                            if len(fkv) >= 2 {
+                                set fk = strings::trim(lists::get(fkv 0))
+                                set fv_raw = lists::get(fkv 1) :str mut
+                                set kk = 2 :i64 mut
+                                while kk < len(fkv) {
+                                    set fv_raw = fv_raw + "=" + lists::get(fkv kk)
+                                    set kk += 1
+                                }
+                                set fv = strings::trim(fv_raw) :str mut
+                                if strings::startswith(fv "\"") && strings::endswith(fv "\"") {
+                                    set fv = strings::substr(fv 1 len(fv) - 2)
+                                }
+                                if fk == "path" { set path_val = fv }
+                                if fk == "version" { set ver_val = fv }
+                            }
+                            set k += 1
+                        }
+
+                        set found_any = true
+                        if path_val == "" {
+                            use dasu("  [FAIL]  " + key + ": no path specified")
+                        } else {
+                            if fs_exists(path_val) {
+                                set msg = "  [OK]    " + key :str mut
+                                if ver_val != "" {
+                                    set msg = msg + "  ->  " + path_val + "  (v" + ver_val + ")"
+                                } else {
+                                    set msg = msg + "  ->  " + path_val
+                                }
+                                use dasu(msg)
+                            } else {
+                                use dasu("  [FAIL]  " + key + "  ->  " + path_val + "  (not found)")
+                            }
+                        }
                     }
                 }
             }
@@ -1040,48 +623,226 @@ fn cmd_check: (args :vec[str]) {
         set i += 1
     }
 
-    if !fs_exists(file) {
-        use error_line("OWL0002" "input not found: " + file)
-        return
+    if !found_any {
+        use dasu("  no dependencies configured")
     }
 
-    set cmd = "mire check " + file :str mut
-    if all == "1" { set cmd = cmd + " --warn-all" }
+    use dasu("")
+    if found_any {
+        use dasu("  integrity checks: pending (requires file manager)")
+    }
+}
 
-    if deny != "" {
-        set _dlist = strings::split(deny ",")
-        set dn = rt_vec_len(_dlist)
+fn cmd_info: (args :vec[str]) {
+    set json_mode = false :bool mut
+    set i = 2 :i64 mut
+    set argc = rt_vec_len(args)
+    while i < argc {
+        if rt_vec_get_str(args i) == "--json" { set json_mode = true }
+        set i += 1
+    }
+
+    set has_proj = has_project()
+
+    set n_val = "?" :str mut
+    set v_val = "?" :str mut
+    set e_val = "?" :str mut
+    set p_val = "?" :str mut
+    set o_val = "?" :str mut
+    set c_val = "?" :str mut
+    set arch_val = "?" :str mut
+    set kernel_val = "?" :str mut
+
+    if has_proj {
+        set n_val = toml_get("owl.toml" "project" "name") :str mut
+        if n_val == "" { set n_val = "?" }
+        set v_val = toml_get("owl.toml" "project" "version") :str mut
+        if v_val == "" { set v_val = "?" }
+        set e_val = toml_get("owl.toml" "project" "entry") :str mut
+        if e_val == "" { set e_val = "?" }
+        set p_val = toml_get("owl.toml" "build" "profile") :str mut
+        if p_val == "" { set p_val = "?" }
+        set o_val = toml_get("owl.toml" "paths" "output") :str mut
+        if o_val == "" { set o_val = "?" }
+        set c_val = toml_get("owl.toml" "paths" "cache") :str mut
+        if c_val == "" { set c_val = "?" }
+
+        set arch_val = strings::trim(proc_run("uname -m 2>/dev/null || true")) :str mut
+        set kernel_val = strings::trim(proc_run("uname -s | tr '[:upper:]' '[:lower:]' 2>/dev/null || true")) :str mut
+        if arch_val == "" { set arch_val = "?" }
+        if kernel_val == "" { set kernel_val = "?" }
+    }
+
+    set compiler_line = "?" :str mut
+    set compiler_out = strings::trim(proc_run("mire --version 2>/dev/null || true"))
+    if compiler_out != "" {
+        set clines = strings::split(compiler_out "\n")
+        set compiler_line = lists::get(clines 0)
+    }
+
+    set llvm = strings::trim(proc_run("llvm-config --version 2>/dev/null || true")) :str mut
+    if llvm == "" { set llvm = "?" }
+
+    # ── Dependencies ─────────────────────────────────────────────
+    set deps_raw = "" :str mut
+    if has_proj {
+        set content = fs_read("owl.toml")
+        set lines = strings::split(content "\n")
+        set nl = len(lines)
+        set in_deps = false :bool mut
         set di = 0 :i64 mut
-        while di < dn {
-            set dcode = strings::trim(rt_vec_get_str(_dlist di))
-            if dcode != "" { set cmd = cmd + " --deny " + dcode }
+        while di < nl {
+            set rline = lists::get(lines di)
+            set line = strings::trim(rline)
+            set parts_hash = strings::split(line "#")
+            set clean = strings::trim(lists::get(parts_hash 0))
+            if clean != "" {
+                set parts_br = strings::split(clean "[")
+                if len(parts_br) >= 2 {
+                    set close = strings::split(lists::get(parts_br 1) "]")
+                    if len(close) >= 1 {
+                        set sec = strings::trim(lists::get(close 0))
+                        if sec == "dependencies" { set in_deps = true } else {
+                            if in_deps { break }
+                        }
+                    }
+                } else {
+                    if in_deps {
+                        set kv = strings::split(clean "=")
+                        if len(kv) >= 2 {
+                            set key = strings::trim(lists::get(kv 0))
+                            set raw_val = lists::get(kv 1) :str mut
+                            set j = 2 :i64 mut
+                            while j < len(kv) {
+                                set raw_val = raw_val + "=" + lists::get(kv j)
+                                set j += 1
+                            }
+                            set ver_s = "-" :str mut
+                            set src_s = "?" :str mut
+                            set tbl = strings::trim(raw_val) :str mut
+                            if strings::startswith(tbl "{") {
+                                set tbl = strings::substr(tbl 1 len(tbl) - 1)
+                            }
+                            if strings::endswith(tbl "}") {
+                                set tbl = strings::substr(tbl 0 len(tbl) - 1)
+                            }
+                            set tbl = strings::trim(tbl)
+                            set fields = strings::split(tbl ",")
+                            set fi = 0 :i64 mut
+                            while fi < len(fields) {
+                                set f = strings::trim(lists::get(fields fi))
+                                set fkv = strings::split(f "=")
+                                if len(fkv) >= 2 {
+                                    set fk = strings::trim(lists::get(fkv 0))
+                                    set fv_r = lists::get(fkv 1) :str mut
+                                    set kk = 2 :i64 mut
+                                    while kk < len(fkv) {
+                                        set fv_r = fv_r + "=" + lists::get(fkv kk)
+                                        set kk += 1
+                                    }
+                                    set fv = strings::trim(fv_r) :str mut
+                                    if strings::startswith(fv "\"") && strings::endswith(fv "\"") {
+                                        set fv = strings::substr(fv 1 len(fv) - 2)
+                                    }
+                                    if fk == "version" { set ver_s = fv }
+                                    if fk == "path" { set src_s = fv }
+                                }
+                                set fi += 1
+                            }
+                            set deps_raw = deps_raw + key + "|" + ver_s + "|" + src_s + "\n"
+                        }
+                    }
+                }
+            }
             set di += 1
         }
     }
 
-    set out = proc_run(cmd)
-    if len(strings::split(out "error[")) > 1 {
-        use dasu(out)
+    # ── Output ──────────────────────────────────────────────────
+    if json_mode {
+        set out = "{\n" :str mut
+        if has_proj {
+            set out_path = o_val + "/" + p_val :str
+            set out_target = arch_val + "-" + kernel_val :str
+            set out = out + "  \"project\": {\n"
+            set out = out + "    \"name\": " + json_quote(n_val) + ",\n"
+            set out = out + "    \"version\": " + json_quote(v_val) + "\n"
+            set out = out + "  },\n"
+            set out = out + "  \"entry\": " + json_quote(e_val) + ",\n"
+            set out = out + "  \"profile\": " + json_quote(p_val) + ",\n"
+            set out = out + "  \"output\": " + json_quote(out_path) + ",\n"
+            set out = out + "  \"cache\": " + json_quote(c_val) + ",\n"
+            set out = out + "  \"target\": " + json_quote(out_target) + ",\n"
+        }
+        set out = out + "  \"compiler\": " + json_quote(compiler_line) + ",\n"
+        set out = out + "  \"owl\": " + json_quote(owl_version()) + ",\n"
+        set out = out + "  \"llvm\": " + json_quote(llvm) + ",\n"
+        set out = out + "  \"language\": \"Mire\",\n"
+        set out = out + "  \"abi\": 1"
+        if has_proj {
+            set out = out + ",\n  \"dependencies\": [\n"
+            set dep_lines = strings::split(strings::trim(deps_raw) "\n")
+            set dli = 0 :i64 mut
+            while dli < len(dep_lines) {
+                set parts = strings::split(lists::get(dep_lines dli) "|")
+                if len(parts) >= 3 {
+                    set dk = lists::get(parts 0)
+                    set dv = lists::get(parts 1)
+                    set dp = lists::get(parts 2)
+                    if dli > 0 { set out = out + ",\n" }
+                    set out = out + "    { \"name\": " + json_quote(dk) + ", \"version\": " + json_quote(dv) + ", \"path\": " + json_quote(dp) + " }"
+                }
+                set dli += 1
+            }
+            if deps_raw == "" {
+                set out = out + "    "
+            }
+            set out = out + "\n  ]"
+        }
+        set out = out + "\n}\n"
+        use dasu(strings::trim(out))
     } else {
-        check_print_warning_summary(file out strict)
-    }
-}
+        if has_proj {
+            use dasu("project:     " + n_val + " v" + v_val)
+            use dasu("entry:       " + e_val)
+            use dasu("profile:     " + p_val)
+            use dasu("output:      " + o_val + "/" + p_val)
+            use dasu("cache:       " + c_val)
+            if arch_val != "?" && kernel_val != "?" {
+                use dasu("target:      " + arch_val + "-" + kernel_val)
+            } else {
+                use dasu("target:      ?")
+            }
+            use dasu("")
+        }
 
-fn cmd_profile: (args :vec[str]) {
-    set as_json = false :bool mut
-    set show_history = false :bool mut
-    set compare = false :bool mut
+        use dasu("compiler:    " + compiler_line)
+        use dasu("owl:         v" + owl_version())
+        use dasu("LLVM:        " + llvm)
+        use dasu("language:    Mire")
+        use dasu("abi:         1")
 
-    set n = rt_vec_len(args)
-    set i = 2 :i64 mut
-    while i < n {
-        set a = rt_vec_get_str(args i)
-        if a == "--json" { set as_json = true }
-        if a == "--history" { set show_history = true }
-        if a == "--compare" { set compare = true }
-        set i += 1
+        if has_proj {
+            use dasu("")
+            use dasu("dependencies:")
+            if deps_raw != "" {
+                set dep_lines = strings::split(strings::trim(deps_raw) "\n")
+                set dli = 0 :i64 mut
+                while dli < len(dep_lines) {
+                    set parts = strings::split(lists::get(dep_lines dli) "|")
+                    if len(parts) >= 3 {
+                        set dk = lists::get(parts 0)
+                        set dv = lists::get(parts 1)
+                        set dp = lists::get(parts 2)
+                        use dasu("  " + dk + "  " + dv + "  (" + dp + ")")
+                    }
+                    set dli += 1
+                }
+            } else {
+                use dasu("  (none)")
+            }
+        }
     }
-    profile_show(as_json show_history compare)
 }
 
 fn cmd_clean: (args :vec[str]) {
@@ -1133,337 +894,6 @@ fn cmd_clean: (args :vec[str]) {
     if cleaned { use dasu("cleaned artifacts") } else { use dasu("nothing to clean") }
 }
 
-fn cmd_test: (args :vec[str]) {
-    set filter = "" :str mut
-    set n = rt_vec_len(args)
-    set i = 2 :i64 mut
-    while i < n {
-        set a = rt_vec_get_str(args i)
-        if a == "--filter" {
-            set i += 1
-            if i < n { set filter = rt_vec_get_str(args i) }
-        } else {
-            if !strings::startswith(a "-") && filter == "" {
-                set filter = a
-            }
-        }
-        set i += 1
-    }
-    run_tests(filter "mire")
-}
-
-fn cmd_info: () {
-    if has_project() {
-        set p_name = project_name()
-        set p_version = project_version()
-        set p_entry = toml_get("owl.toml" "project" "entry")
-        set p_entry_display = p_entry :str mut
-        if p_entry_display == "" { set p_entry_display = "code/main.mire" }
-        set p_desc = project_description()
-        use dasu("info -- " + p_name + " v" + p_version)
-        use dasu("  entry . " + p_entry_display)
-        if p_desc != "" {
-            use dasu("  desc  . " + p_desc)
-        }
-        set deps_str = toml_keys("owl.toml" "dependencies")
-        if deps_str != "" {
-            use dasu("  deps  . " + deps_str)
-        }
-        set test_path = resolve_path("paths.tests" "tests")
-        if fs_exists(test_path) {
-            set data = find_mire_files(test_path)
-            if data != "" {
-                set test_lines = strings::split(data "\n")
-                set tc = len(test_lines)
-                use dasu("  tests . " + str(tc) + " test(s)")
-            }
-        }
-        set output_dir = resolve_path("paths.output" "bin")
-        set cache_dir = resolve_path("paths.cache" "bin/.cache")
-        use dasu("  out   . " + output_dir + "/")
-        use dasu("  cache . " + cache_dir + "/")
-    } else {
-        use dasu("info -- <no project>")
-    }
-
-    if has_project() {
-        set c_target = strings::trim(proc_run("uname -m"))
-        set b_profile = toml_get("owl.toml" "build" "profile")
-        set b_profile_display = b_profile :str mut
-        if b_profile_display == "" { set b_profile_display = "debug" }
-        set b_opt = toml_get("owl.toml" "build" "opt-level")
-        set b_opt_display = b_opt :str mut
-        if b_opt_display == "" { set b_opt_display = "0" }
-        set b_compiler = toml_get("owl.toml" "build" "compiler") :str mut
-        if b_compiler == "" { set b_compiler = "mire" }
-        use dasu("  engine . " + compiler_version())
-        use dasu("  target . " + c_target)
-        use dasu("  profile. " + b_profile_display + " (opt-level: " + b_opt_display + ")")
-        use dasu("  using  . " + b_compiler)
-    }
-
-    set all_pkgs = registry_list()
-    if all_pkgs != "" {
-        set pkg_list = strings::split(all_pkgs "\n")
-        set pn = len(pkg_list)
-        set pi = 0 :i64 mut
-        set pkg_names = "" :str mut
-        while pi < pn {
-            set p = strings::trim(lists::get(pkg_list pi))
-            if p != "" {
-                if pkg_names != "" { set pkg_names = pkg_names + ", " }
-                set pkg_names = pkg_names + p
-            }
-            set pi += 1
-        }
-        use dasu("  pkgs  . " + pkg_names)
-    }
-}
-
-fn cmd_import_repo: (args :vec[str]) {
-    set n = rt_vec_len(args)
-    if n < 3 {
-        use dasu("Usage: owl import-repo <url>")
-        return
-    }
-    set url = strings::trim(rt_vec_get_str(args 2)) :str mut
-    if url == "" {
-        use dasu("Usage: owl import-repo <url>")
-        return
-    }
-
-    ensure_owl_home()
-
-    set stamp = strings::trim(proc_run("date +%s"))
-    set tmp_clone = sync_tmp_dir() + "/" + stamp :str mut
-
-    set t0 = tmp_clone
-    use proc_run("rm -rf " + t0)
-
-    set u0 = url
-    use dasu("Cloning " + u0 + "...")
-
-    set u1 = url
-    set t1 = tmp_clone
-    set clone_out = proc_run("git clone " + u1 + " " + t1 + " 2>&1")
-
-    set t2 = tmp_clone
-    if !fs_exists(t2 + "/.git") {
-        use error_line("OWL0020" "failed to clone: " + clone_out)
-        return
-    }
-
-    set t3 = tmp_clone
-    set commit = strings::trim(proc_run("git -C " + t3 + " rev-parse HEAD"))
-
-    set t4 = tmp_clone
-    set pkg_dirs = find_package_dirs(t4)
-    set dir_list = strings::split(pkg_dirs "\n")
-    set dn = rt_vec_len(dir_list)
-    set found = 0 :i64 mut
-
-    set di = 0 :i64 mut
-    while di < dn {
-        set sub = strings::trim(rt_vec_get_str(dir_list di))
-        if sub != "" {
-            set found = found + 1
-            set t5 = tmp_clone
-            set owl_toml = t5 + "/" + sub + "/owl.toml"
-            set pkg_name = strings::trim(toml_get(owl_toml "project" "name")) :str mut
-            if pkg_name == "" {
-                set s1 = sub
-                set pkg_name = s1
-                set s2 = sub
-                use warn_line("OWL0021" "no [project].name in " + s2 + ", using directory name")
-            }
-
-            set p1 = pkg_name
-            set u2 = url
-            set s3 = sub
-            set c1 = commit
-            use registry_write(p1 u2 s3 "" "" "" c1)
-
-            set p2 = pkg_name
-            set u3 = url
-            set s4 = sub
-            use dasu("  registered: " + p2 + " -> " + u3 + " (" + s4 + ")")
-        }
-        set di += 1
-    }
-
-    set t6 = tmp_clone
-    use proc_run("rm -rf " + t6)
-
-    if found == 0 {
-        use dasu("No packages found in repo (no subdirectories with owl.toml).")
-    } else {
-        use dasu("Found " + str(found) + " package(s). Use 'owl sync <pkg>' to install.")
-    }
-}
-
-fn cmd_sync: (args :vec[str]) {
-    set n = rt_vec_len(args)
-    ensure_owl_home()
-
-    set pkg_name = "" :str mut
-    set is_all = false :bool mut
-    set force = false :bool mut
-
-    set i = 2 :i64 mut
-    while i < n {
-        set a = rt_vec_get_str(args i)
-        if a == "--all" { set is_all = true }
-        if a == "--force" || a == "-f" { set force = true }
-        if a != "--all" && a != "--force" && a != "-f" && !strings::startswith(a "-") {
-            set pkg_name = a
-        }
-        set i += 1
-    }
-
-    if pkg_name == "" && !is_all {
-        use dasu("Usage: owl sync <pkg> [--force]  or  owl sync --all")
-        return
-    }
-
-    if is_all {
-        set all_pkgs = registry_list()
-        if all_pkgs == "" {
-            use dasu("No packages in registry. Use 'owl import-repo <url>' first.")
-            return
-        }
-        set pkg_list = strings::split(all_pkgs "\n")
-        set pn = rt_vec_len(pkg_list)
-        set pi = 0 :i64 mut
-        while pi < pn {
-            set p = strings::trim(rt_vec_get_str(pkg_list pi))
-            if p != "" { sync_one_pkg(p force) }
-            set pi += 1
-        }
-        return
-    }
-
-    sync_one_pkg(pkg_name force)
-}
-
-fn cmd_drop: (args :vec[str]) {
-    set n = rt_vec_len(args)
-    if n < 3 {
-        use dasu("Usage: owl drop <pkg>")
-        return
-    }
-    set pkg = strings::trim(rt_vec_get_str(args 2)) :str mut
-    if pkg == "" {
-        use dasu("Usage: owl drop <pkg>")
-        return
-    }
-
-    set p1 = pkg
-    set store_p = store_pkg_dir(p1)
-    if fs_exists(store_p) {
-        use proc_run("rm -rf " + store_p)
-        use dasu("  removed from store")
-    }
-    set p2 = pkg
-    set reg_f = registry_file(p2)
-    if fs_exists(reg_f) {
-        set p3 = pkg
-        registry_delete(p3)
-        use dasu("  removed from registry")
-    }
-    set p4 = pkg
-    use dasu("  dropped: " + p4)
-}
-
-fn cmd_verify: (args :vec[str]) {
-    set n = rt_vec_len(args)
-    if n < 3 {
-        use dasu("Usage: owl verify <pkg>")
-        return
-    }
-    set pkg = strings::trim(rt_vec_get_str(args 2)) :str mut
-    if pkg == "" {
-        use dasu("Usage: owl verify <pkg>")
-        return
-    }
-
-    set p1 = pkg
-    set stored_sha256 = registry_read(p1 "sha256")
-    if stored_sha256 == "" {
-        set p2 = pkg
-        use dasu("Package '" + p2 + "' not synced. Use 'owl sync " + p2 + "' first.")
-        return
-    }
-
-    set p3 = pkg
-    set install_dir = store_pkg_dir(p3)
-    if !fs_exists(install_dir) {
-        set p4 = pkg
-        use dasu("Package '" + p4 + "' not found at " + install_dir)
-        return
-    }
-
-    set computed_sha256 = compute_tree_sha256(install_dir)
-    use dasu("  stored sha256:  " + stored_sha256)
-    use dasu("  computed sha256: " + computed_sha256)
-
-    if stored_sha256 == computed_sha256 {
-        use dasu("  SHA256: OK")
-    } else {
-        set p5 = pkg
-        use error_line("OWL0040" "SHA256 mismatch for " + p5 + " -- re-sync with 'owl sync " + p5 + " --force'")
-    }
-}
-
-fn cmd_info_pkg: (args :vec[str]) {
-    set n = rt_vec_len(args)
-    if n < 3 {
-        set all = registry_list()
-        if all == "" {
-            use dasu("No packages in registry.")
-            return
-        }
-        use dasu("Registered packages:")
-        set lines = strings::split(all "\n")
-        set ln = rt_vec_len(lines)
-        set li = 0 :i64 mut
-        while li < ln {
-            set p = strings::trim(rt_vec_get_str(lines li))
-            if p != "" {
-                set p_inst = p
-                set inst = registry_read(p_inst "installed_build")
-                if inst != "" {
-                    use dasu("  " + p + "  (build: " + inst + ")")
-                } else {
-                    use dasu("  " + p + "  (not synced)")
-                }
-            }
-            set li += 1
-        }
-        return
-    }
-
-    set pkg = strings::trim(rt_vec_get_str(args 2)) :str mut
-    set pa = pkg
-    set src_url = registry_read(pa "source_url")
-    if src_url == "" {
-        set pb = pkg
-        use dasu("Package '" + pb + "' not found in registry.")
-        return
-    }
-
-    set pc1 = pkg
-    use dasu("Package: " + pc1)
-    use dasu("  source_url:      " + src_url)
-    set pc2 = pkg
-    use dasu("  source_path:     " + registry_read(pc2 "source_path"))
-    set pc3 = pkg
-    use dasu("  sha256:          " + registry_read(pc3 "sha256"))
-    set pc4 = pkg
-    use dasu("  installed_build: " + registry_read(pc4 "installed_build"))
-    set pc5 = pkg
-    use dasu("  last_commit:     " + registry_read(pc5 "last_commit"))
-}
-
 fn print_banner: () {
     use dasu("Owl v" + owl_version())
     use dasu("Compiler: " + compiler_version())
@@ -1473,38 +903,23 @@ fn print_banner: () {
 fn print_help: () {
     print_banner()
     use dasu("")
-    use dasu("Usage: owl <command> [args] [flags]")
-    use dasu("       owl -<flag>[...] [args]    (pacman-style)")
+    use dasu("Usage: owl <command> [flags]")
     use dasu("")
-    use dasu("Build commands:")
-    use dasu("  -B,  build    [file] [-r|--release] [-O <0|1|2|3|s|z>]")
-    use dasu("       run      [file] [-r|--release] [-O <n>] [-- args]")
-    use dasu("  -K,  check    [file] [--all] [--strict] [--deny Wxxxx]")
-    use dasu("  -T,  test     [filter]")
-    use dasu("  -D,  debug    [file]    debug build with IR emission")
+    use dasu("Phase 1 - Build commands:")
+    use dasu("  build  [file]  [-r|--release] [-O <0|1|2|3|s|z>]")
+    use dasu("  run    [file]  [-r|--release] [-O <n>]")
     use dasu("")
-    use dasu("Project commands:")
-    use dasu("  -N,  new      <Name>    create new project")
-    use dasu("       add      <Name>    [--version <ver>] [--path <path>]")
-    use dasu("  -C,  clean    [--cache] [--bin] [--all]")
-    use dasu("       profile  [--json] [--history] [--compare]")
-    use dasu("  -Q,  info     [<pkg>]   project/packages info")
-    use dasu("")
-    use dasu("Package commands:")
-    use dasu("  -S,  sync     <pkg>     [-f|--force]  install/update from registry")
-    use dasu("  -Ss            <term>   search packages")
-    use dasu("  -Si            <pkg>    show package details")
-    use dasu("  -Syu                    sync + upgrade all packages")
-    use dasu("  -R,  drop     <pkg>     remove package")
-    use dasu("  -Rs            <pkg>    remove + delete installed files")
-    use dasu("  -Qi            <pkg>    query installed package info")
-    use dasu("  -Ql            <pkg>    list installed files")
-    use dasu("       import-repo <url>  register git repo packages")
-    use dasu("       verify    <pkg>    verify SHA256 integrity")
+    use dasu("Phase 1 - Project commands:")
+    use dasu("  new    <Name>      create new project")
+    use dasu("  clean  [--bin] [--cache] [--all]")
+    use dasu("  checkup            validate owl.toml and environment")
+    use dasu("  checkup --fix      regenerate owl.toml with defaults")
+    use dasu("  check             validate dependencies and integrity")
+    use dasu("  info              show project and environment info")
     use dasu("")
     use dasu("Global:")
-    use dasu("  -V,  --version          show version")
-    use dasu("  -h,  --help             show this help")
+    use dasu("  -V, --version     Show version")
+    use dasu("  -h, --help        Show this help")
 }
 
 pub fn main: () {
@@ -1528,153 +943,46 @@ pub fn main: () {
         return
     }
 
+    set a1 = args
+    set a2 = args
+    set a3 = args
+    set a4 = args
+    set a5 = args
+    set a6 = args
+    set a7 = args
+    if cmd == "-B" || cmd == "build" {
+        compile_pipeline(a1 false)
+        return
+    }
+    if cmd == "run" {
+        compile_pipeline(a2 true)
+        return
+    }
     if cmd == "-N" || cmd == "new" {
         if n <= 2 {
             use dasu("Usage: owl new <Name>")
             return
         }
-        cmd_new(lists::get(args 2))
+        cmd_new(lists::get(a3 2))
         return
     }
-
-    set a1 = args
-    if cmd == "run" {
-        cmd_run(args)
+    if cmd == "checkup" {
+        cmd_checkup(a5)
         return
     }
-
-    set a2 = a1
-    if cmd == "add" {
-        cmd_add(a1)
+    if cmd == "check" {
+        cmd_check(a6)
         return
     }
-
-    set a3 = a2
-    if cmd == "-B" || cmd == "build" {
-        cmd_build(a2)
+    if cmd == "info" {
+        cmd_info(a7)
         return
     }
-
-    set a4 = a3
-    if cmd == "-K" || cmd == "check" {
-        cmd_check(a3)
-        return
-    }
-
-    set a5 = a4
-    if cmd == "-D" || cmd == "debug" {
-        use dasu("debug: compiling in debug mode with IR emission...")
-        cmd_build(a4)
-        return
-    }
-
-    set a6 = a5
-    if cmd == "profile" {
-        cmd_profile(a5)
-        return
-    }
-
-    set a7 = a6
-    set a8 = a6
-    set a9 = a6
-    set a10 = a6
-    set a11 = a6
-    set a12 = a6
-    set a13 = a6
-    set a14 = a6
-    set a15 = a6
-    if cmd == "-T" || cmd == "test" {
-        cmd_test(a7)
-        return
-    }
-
     if cmd == "-C" || cmd == "clean" {
-        cmd_clean(a8)
+        cmd_clean(a4)
         return
     }
 
-    if cmd == "-Q" || cmd == "query" || cmd == "info" {
-        if n >= 3 {
-            set sub = lists::get(a9 2)
-            if !strings::startswith(sub "-") {
-                cmd_info_pkg(a10)
-                return
-            }
-        }
-        cmd_info()
-        return
-    }
-
-    if cmd == "-S" || cmd == "sync" {
-        cmd_sync(a11)
-        return
-    }
-
-    if cmd == "-R" || cmd == "remove" || cmd == "drop" {
-        cmd_drop(a12)
-        return
-    }
-
-    if cmd == "import-repo" || cmd == "import_repo" || cmd == "import" {
-        cmd_import_repo(a13)
-        return
-    }
-
-    if cmd == "verify" {
-        cmd_verify(a14)
-        return
-    }
-
-    if strings::startswith(cmd "-") {
-        set main_flag = strings::substr(cmd 1 1)
-        set rest = strings::substr(cmd 2 len(cmd) - 2)
-
-        if main_flag == "S" {
-            if rest == "s" || rest == "search" {
-                use dasu("search: not implemented yet")
-                return
-            }
-            if rest == "i" {
-                set a_si = a15
-                cmd_info_pkg(a_si)
-                return
-            }
-            if rest == "yu" || rest == "y" || rest == "u" || rest == "ya" {
-                set a_syu = a15
-                cmd_sync(a_syu)
-                return
-            }
-            set a_s = a15
-            cmd_sync(a_s)
-            return
-        }
-
-        if main_flag == "Q" {
-            if rest == "i" {
-                set a_qi = a15
-                cmd_info_pkg(a_qi)
-                return
-            }
-            if rest == "l" || rest == "s" {
-                use dasu("query sub-command not implemented yet")
-                return
-            }
-            cmd_info()
-            return
-        }
-
-        if main_flag == "C" {
-            set a_c = a15
-            cmd_clean(a_c)
-            return
-        }
-
-        if main_flag == "R" {
-            set a_r = a15
-            cmd_drop(a_r)
-            return
-        }
-    }
-
-    print_help()
+    use dasu("not available in Phase 1 - coming in a later release")
+    return
 }
