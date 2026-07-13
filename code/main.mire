@@ -66,10 +66,14 @@ fn collect_test_flags: (args :&vec[str]) :str {
     set flags = "" :str mut
     while i < n {
         set a = rt_vec_get_str(args i)
-        if a == "--verbose" || a == "-v" || a == "--no-run" {
+        if a == "--verbose" || a == "-v" || a == "--no-run" || a == "-j" || a == "--jobs" {
             set flags = flags + " " + a
         } else {
-            set flags = flags + " \"" + a + "\""
+            if util::startswith(a "--jobs=") {
+                set flags = flags + " " + a
+            } else {
+                set flags = flags + " \"" + a + "\""
+            }
         }
         set i += 1
     }
