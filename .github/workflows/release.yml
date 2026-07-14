@@ -31,7 +31,7 @@ jobs:
 
       - name: Build mire compiler
         run: |
-          git clone --depth 1 -b avenys/mire \
+          git clone --depth 1 -b main \
             https://github.com/mire-lang/Avenys-rust.git /tmp/mire-src
           cd /tmp/mire-src && cargo build --release
 
