@@ -10,11 +10,42 @@ pub fn cmd_registry_add: (url :str) {
         return
     }
 
-    use proc::run("curl -sL -o \"" + tmp + "/registry.json\" \"" + url + "/registry.json\" 2>/dev/null || true")
-    set content = util::trim(fs::read(tmp + "/registry.json"))
+    set content = "" :str mut
+    set fetched = false :bool mut
+    set used_url = "" :str mut
+
+    set attempt = 0 :i64 mut
+    while attempt < 4 {
+        set try_url = "" :str mut
+        if attempt == 0 { set try_url = url + "/registry.json" }
+        if attempt == 1 { set try_url = url + "/raw/main/registry.json" }
+        if attempt == 2 { set try_url = url + "/raw/master/registry.json" }
+        if attempt == 3 {
+            if strings::contains(url "github.com") {
+                set repo_path = strings::replace(url "https://github.com/" "")
+                set try_url = "https://raw.githubusercontent.com/" + repo_path + "/main/registry.json"
+            }
+        }
+
+        if try_url != "" {
+            use proc::run("curl -sL --fail -o \"" + tmp + "/registry.json\" \"" + try_url + "\" 2>/dev/null || true")
+            set test_content = util::trim(fs::read(tmp + "/registry.json"))
+            if test_content != "" {
+                set content = test_content
+                set fetched = true
+                set used_url = try_url
+                use dasu("  [OK]    fetched registry.json from " + used_url)
+            }
+        }
+
+        if fetched { break }
+        set attempt += 1
+    }
+
     use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
-    if content == "" {
-        use dasu("  [FAIL]  could not fetch " + url + "/registry.json")
+
+    if !fetched {
+        use dasu("  [FAIL]  could not fetch registry.json from " + url)
         return
     }
 
@@ -26,17 +57,17 @@ pub fn cmd_registry_add: (url :str) {
 
     set protocol = util::json_get_int_str(content "protocol")
     if protocol == "" {
-        use dasu("  [FAIL]  registry.json: missing 'protocol'")
+        use dasu("  [FAIL]  missing 'protocol' in registry.json")
         return
     }
     if protocol != "1" {
-        use dasu("  [FAIL]  registry.json: unsupported protocol v" + protocol + " (expected 1)")
+        use dasu("  [FAIL]  unsupported protocol v" + protocol + " (expected 1)")
         return
     }
 
     set pubkey = util::json_get_str(content "public-key")
     if pubkey == "" {
-        use dasu("  [FAIL]  registry.json: missing 'public-key'")
+        use dasu("  [FAIL]  missing 'public-key' in registry.json")
         return
     }
 
@@ -84,10 +115,10 @@ pub fn cmd_registry_list: () {
             set reg_path = reg_dir + "/" + entry
             if fs_exists(reg_path + "/registry.json") {
                 set content = fs::read(reg_path + "/registry.json")
-                set name = util::json_get_str(content "name") :str mut
-                if name == "" { set name = entry }
-                set protocol = util::json_get_int_str(content "protocol") :str mut
-                if protocol == "" { set protocol = "?" }
+                set reg_name = util::json_get_str(content "name") :str mut
+                if reg_name == "" { set reg_name = entry }
+                set reg_protocol = util::json_get_int_str(content "protocol") :str mut
+                if reg_protocol == "" { set reg_protocol = "?" }
                 set status = "enabled" :str mut
                 if fs_exists(reg_path + "/.disabled") { set status = "disabled" }
                 set priority = "" :str mut
@@ -99,7 +130,7 @@ pub fn cmd_registry_list: () {
                     use dasu("")
                 }
                 set found = true
-                set line = "  " + name + "  v" + protocol + "  [" + status + "]" :str mut
+                set line = "  " + reg_name + "  v" + reg_protocol + "  [" + status + "]" :str mut
                 if priority != "" { set line = line + "  priority=" + priority }
                 use dasu(line)
             }
@@ -133,9 +164,9 @@ pub fn cmd_registry_sync_one: (name :str, reg_path :str) {
     }
 
     set content = fs::read(reg_path + "/registry.json")
-    set url = util::json_get_str(content "url") :str mut
-    if url == "" {
-        set url = util::json_get_str(content "name")
+    set reg_url = util::json_get_str(content "url") :str mut
+    if reg_url == "" {
+        set reg_url = util::json_get_str(content "name")
     }
 
     set tmp = crypto::crypto_tempdir("owl-sync")
@@ -144,23 +175,49 @@ pub fn cmd_registry_sync_one: (name :str, reg_path :str) {
         return
     }
 
-    use proc::run("curl -sL --fail -o \"" + tmp + "/index.toml\" \"" + url + "/index.toml\" 2>/dev/null || true")
-    set index_content = util::trim(fs::read(tmp + "/index.toml"))
+    set synced = false :bool mut
+    set syncurl = "" :str mut
 
-    if index_content == "" {
+    set attempt = 0 :i64 mut
+    while attempt < 3 {
+        set try_url = "" :str mut
+        if attempt == 0 { set try_url = reg_url + "/index.toml" }
+        if attempt == 1 { set try_url = reg_url + "/raw/main/index.toml" }
+        if attempt == 2 {
+            if strings::contains(reg_url "github.com") {
+                set repo_path = strings::replace(reg_url "https://github.com/" "")
+                set try_url = "https://raw.githubusercontent.com/" + repo_path + "/main/index.toml"
+            }
+        }
+
+        if try_url != "" {
+            use proc::run("curl -sL --fail -o \"" + tmp + "/index.toml\" \"" + try_url + "\" 2>/dev/null || true")
+            set test_content = util::trim(fs::read(tmp + "/index.toml"))
+            if test_content != "" {
+                use fs_write(tmp + "/index.toml" test_content)
+                set syncurl = try_url
+                set synced = true
+            }
+        }
+
+        if synced { break }
+        set attempt += 1
+    }
+
+    if !synced {
         use proc::run("rm -rf \"" + tmp + "\" 2>/dev/null")
-        use dasu("    [FAIL]  could not fetch index.toml from " + url)
+        use dasu("    [FAIL]  could not fetch index.toml from " + reg_url)
         return
     }
 
+    set index_content = fs::read(tmp + "/index.toml")
     set pubkey = util::json_get_str(content "public-key")
-    use proc::run("curl -sL --fail -o \"" + tmp + "/index.toml.sig\" \"" + url + "/index.toml.sig\" 2>/dev/null || true")
+    use proc::run("curl -sL --fail -o \"" + tmp + "/index.toml.sig\" \"" + syncurl + ".sig\" 2>/dev/null || true")
     set sig_file = tmp + "/index.toml.sig"
     set sig_size = util::trim(proc::run("stat -c%s \"" + sig_file + "\" 2>/dev/null || echo 0"))
     if sig_size != "0" && pubkey != "" {
         use dasu("    [INFO]  verifying index.toml signature...")
-        set idx_file = tmp + "/index.toml"
-        set verify_result = crypto::crypto_verify_ed25519_sigfile(pubkey idx_file sig_file)
+        set verify_result = crypto::crypto_verify_ed25519_sigfile(pubkey tmp + "/index.toml" sig_file)
         if verify_result == "true" {
             use dasu("    [OK]    signature valid")
         } else {
@@ -216,5 +273,4 @@ pub fn cmd_registry_sync: () {
         use dasu("  no enabled registries")
     }
 }
-
 
