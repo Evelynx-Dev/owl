@@ -10,7 +10,7 @@ pub fn cmd_load_url: (args :vec[str]) {
         set url = args::get_flag_value(args "-u")
     }
     if url == "" {
-        set url = args::get_positional(args 1)
+        set url = args::get_positional(args 0)
     }
     if url == "" {
         use dasu("usage: owl load --url <url>")
@@ -112,7 +112,7 @@ pub fn cmd_load_dep: (args :vec[str]) {
 }
 
 pub fn cmd_load_remove_registry: (args :vec[str]) {
-    set name = args::get_positional(args 2) :str mut
+    set name = args::get_positional(args 0) :str mut
     if name == "" {
         set name = args::get_flag_value(args "-r")
     }
