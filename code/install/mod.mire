@@ -49,7 +49,7 @@ pub fn cmd_list_packages: () {
                 set i = 0 :i64 mut
                 while i < lines {
                     set line = util::trim(semver::nth_line(content i))
-                    if line == "[[package]]" {
+                    if line == "[[packages]]" {
                         if in_pkg && len(cur_name) > 0 {
                             use dasu("  " + reg_name + " / " + cur_name + " v" + cur_ver)
                         }
