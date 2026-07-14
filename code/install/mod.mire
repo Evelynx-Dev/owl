@@ -21,7 +21,7 @@ pub fn cmd_install: (has_l :bool has_t :bool no_verify :bool force :bool target_
         return 0
     }
     set version = ver :str mut
-    if version == name || len(version) == 0 || version == "*" { set version = "latest" }
+    if len(version) == 0 || version == "*" { set version = "latest" }
     return cmd_install_pkg(name version no_verify force)
 }
 

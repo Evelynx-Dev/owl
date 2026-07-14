@@ -33,12 +33,17 @@ pub fn get_flag_value: (args :&vec[str], flag :&str) :str {
 pub fn get_positional: (args :&vec[str], nth :i64) :str {
     set n = rt_vec_len(args)
     set found = 0 :i64 mut
+    set skipped_cmd = false :bool mut
     set i = 1 :i64 mut
     while i < n {
         set a = rt_vec_get_str(args i)
         if !util::startswith(a "-") && a != "" {
-            if found == nth { return a }
-            set found += 1
+            if skipped_cmd == false {
+                set skipped_cmd = true
+            } else {
+                if found == nth { return a }
+                set found += 1
+            }
         }
         set i += 1
     }
