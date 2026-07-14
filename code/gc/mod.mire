@@ -2,7 +2,7 @@ module gc
 load util
 
 pub fn cmd_gc: (args :vec[str]) {
-    set lib_dir = util::owl_home_lib()
+    set lib_dir = util::owl_home_modules()
     if !fs_exists(lib_dir) {
         use dasu("  nothing to clean - no packages installed")
         use dasu("  done")
