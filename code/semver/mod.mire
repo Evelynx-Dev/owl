@@ -1,0 +1,252 @@
+module semver
+load util
+
+pub fn parse_version: (ver :&str) :str {
+    set trimmed = util::trim(ver)
+    if trimmed == "" { return "0.0.0" }
+
+    set dot1 = strings::index(trimmed ".")
+    if dot1 < 0 { return trimmed + ".0.0" }
+
+    set major = strings::substr(trimmed 0 dot1)
+    set rest = strings::substr(trimmed dot1 + 1 9999)
+    set dot2 = strings::index(rest ".")
+    if dot2 < 0 { return major + "." + rest + ".0" }
+
+    set minor = strings::substr(rest 0 dot2)
+    set patch = strings::substr(rest dot2 + 1 9999)
+    return major + "." + minor + "." + patch
+}
+
+pub fn compare_versions: (a :&str b :&str) :i64 {
+    set pa = parse_version(a)
+    set pb = parse_version(b)
+
+    set dot1a = strings::index(pa ".")
+    set major_a = util::string_to_i64(strings::substr(pa 0 dot1a))
+    set rest_a = strings::substr(pa dot1a + 1 9999)
+    set dot2a = strings::index(rest_a ".")
+    set minor_a = util::string_to_i64(strings::substr(rest_a 0 dot2a))
+    set patch_a = util::string_to_i64(strings::substr(rest_a dot2a + 1 9999))
+
+    set dot1b = strings::index(pb ".")
+    set major_b = util::string_to_i64(strings::substr(pb 0 dot1b))
+    set rest_b = strings::substr(pb dot1b + 1 9999)
+    set dot2b = strings::index(rest_b ".")
+    set minor_b = util::string_to_i64(strings::substr(rest_b 0 dot2b))
+    set patch_b = util::string_to_i64(strings::substr(rest_b dot2b + 1 9999))
+
+    if major_a < major_b { return -1 }
+    if major_a > major_b { return 1 }
+    if minor_a < minor_b { return -1 }
+    if minor_a > minor_b { return 1 }
+    if patch_a < patch_b { return -1 }
+    if patch_a > patch_b { return 1 }
+    return 0
+}
+
+pub fn get_constraint_type: (c :&str) :str {
+    if util::startswith(c "^") { return "^" }
+    if util::startswith(c "~") { return "~" }
+    if util::startswith(c ">=") { return ">=" }
+    if util::startswith(c "<=") { return "<=" }
+    if util::startswith(c ">") { return ">" }
+    if util::startswith(c "<") { return "<" }
+    return "="
+}
+
+pub fn get_constraint_version: (c :&str) :str {
+    set trimmed = util::trim(c)
+    if util::startswith(trimmed "^") { return util::trim(strings::substr(trimmed 1 len(trimmed) - 1)) }
+    if util::startswith(trimmed "~") { return util::trim(strings::substr(trimmed 1 len(trimmed) - 1)) }
+    if util::startswith(trimmed ">=") { return util::trim(strings::substr(trimmed 2 len(trimmed) - 2)) }
+    if util::startswith(trimmed "<=") { return util::trim(strings::substr(trimmed 2 len(trimmed) - 2)) }
+    if util::startswith(trimmed ">") { return util::trim(strings::substr(trimmed 1 len(trimmed) - 1)) }
+    if util::startswith(trimmed "<") { return util::trim(strings::substr(trimmed 1 len(trimmed) - 1)) }
+    return trimmed
+}
+
+pub fn constraint_matches: (version :&str constraint :&str) :bool {
+    set c = util::trim(constraint)
+    set v = util::trim(version)
+
+    if c == "*" || c == "latest" { return true }
+
+    set op = get_constraint_type(c)
+    set ver_str = get_constraint_version(c)
+    set pv = parse_version(ver_str)
+    set vv = parse_version(v)
+
+    if op == ">=" { return compare_versions(vv pv) >= 0 }
+    if op == "<=" { return compare_versions(vv pv) <= 0 }
+    if op == ">" { return compare_versions(vv pv) > 0 }
+    if op == "<" { return compare_versions(vv pv) < 0 }
+
+    if op == "^" {
+        if compare_versions(vv pv) < 0 { return false }
+        set dot1 = strings::index(pv ".")
+        set major_s = strings::substr(pv 0 dot1)
+        set major = util::string_to_i64(major_s)
+        set upper = util::i64_to_string(major + 1) + ".0.0"
+        return compare_versions(vv upper) < 0
+    }
+
+    if op == "~" {
+        if compare_versions(vv pv) < 0 { return false }
+        set dot1 = strings::index(pv ".")
+        set rest = strings::substr(pv dot1 + 1 9999)
+        set dot2 = strings::index(rest ".")
+        set major_s = strings::substr(pv 0 dot1)
+        set minor_s = strings::substr(rest 0 dot2)
+        set minor = util::string_to_i64(minor_s)
+        set upper = major_s + "." + util::i64_to_string(minor + 1) + ".0"
+        return compare_versions(vv upper) < 0
+    }
+
+    return compare_versions(vv pv) == 0
+}
+
+pub fn count_lines: (s :&str) :i64 {
+    set n = 0 :i64 mut
+    set pos = 0 :i64 mut
+    set slen = len(s)
+    while pos < slen {
+        set ch = strings::substr(s pos 1)
+        if ch == "\n" { set n += 1 }
+        set pos += 1
+    }
+    return n + 1
+}
+
+pub fn first_token: (s :&str) :str {
+    set trimmed = util::trim(s)
+    set sp = strings::index(trimmed " ")
+    if sp < 0 { return trimmed }
+    return strings::substr(trimmed 0 sp)
+}
+
+pub fn rest_tokens: (s :&str) :str {
+    set trimmed = util::trim(s)
+    set sp = strings::index(trimmed " ")
+    if sp < 0 { return "" }
+    return util::trim(strings::substr(trimmed sp + 1 9999))
+}
+
+pub fn best_match: (versions :&str constraint :&str) :str {
+    if versions == "" { return "" }
+
+    set best = "" :str mut
+    set vlist = util::trim(versions) :str mut
+    while vlist != "" {
+        set ver = first_token(vlist)
+        set vlist = rest_tokens(vlist)
+        if ver != "" {
+            if constraint_matches(ver constraint) {
+                if best == "" { set best = ver } else {
+                    if compare_versions(ver best) > 0 { set best = ver }
+                }
+            }
+        }
+    }
+    return best
+}
+
+pub fn extract_str_val: (line :&str) :str {
+    set trimmed = util::trim(line)
+    set eq_pos = strings::index(trimmed "=")
+    if eq_pos < 0 { return "" }
+    set val = util::trim(strings::substr(trimmed eq_pos + 1 9999)) :str mut
+    if util::startswith(val "\"") { set val = strings::substr(val 1 len(val) - 1) }
+    if util::endswith(val "\"") { set val = strings::substr(val 0 len(val) - 1) }
+    return util::trim(val)
+}
+
+pub fn nth_line: (s :&str n :i64) :str {
+    set pos = 0 :i64 mut
+    set cur = 0 :i64 mut
+    set slen = len(s)
+    while pos < slen && cur < n {
+        set ch = strings::substr(s pos 1)
+        if ch == "\n" { set cur += 1 }
+        set pos += 1
+    }
+    if pos >= slen { return "" }
+    set nl = strings::index(strings::substr(s pos slen - pos) "\n")
+    if nl < 0 { return strings::substr(s pos slen - pos) }
+    return strings::substr(s pos nl)
+}
+
+pub fn extract_versions: (content :&str name :&str) :str {
+    return ""
+}
+
+pub fn resolve_from_registry: (name :&str constraint :&str) :str {
+    set cached = get_cached_resolution(name constraint)
+    if cached != "" { return cached }
+
+    set reg_dir = util::owl_home_registries()
+    set reg_list = util::trim(proc::run("ls \"" + reg_dir + "\" 2>/dev/null || true"))
+    if reg_list == "" { return "" }
+
+    set all_versions = "" :str mut
+    set entries = util::split(reg_list "\n")
+    set ni = len(entries)
+    set i_reg = 0 :i64 mut
+    while i_reg < ni {
+        set reg_name = util::trim(util::list_get(entries i_reg))
+        if reg_name != "" {
+            set index_path = reg_dir + "/" + reg_name + "/index.toml"
+            set version_cmd = "grep -A1 '^name = \"" + *name + "\"' \"" + index_path + "\" | grep '^version =' | sed 's/.*= \"\\(.*\\)\"/\\1/' | head -1"
+            set versions = util::trim(proc::run(version_cmd))
+            if versions != "" {
+                if all_versions == "" { set all_versions = versions } else { set all_versions = all_versions + " " + versions }
+            }
+        }
+        set i_reg += 1
+    }
+
+    if all_versions == "" { return "" }
+    set result = best_match(all_versions constraint)
+    if result != "" {
+        cache_resolution(name constraint result)
+    }
+    return result
+}
+
+pub fn check_version: (name :&str constraint :&str) {
+    set n = util::trim(name)
+    set c = util::trim(constraint)
+    set resolved = resolve_from_registry(name constraint)
+    if resolved == "" {
+        use dasu("  warning: \"" + n + "\" not found in any registry for constraint \"" + c + "\"")
+    } else {
+        use dasu("  resolved " + n + " " + c + " -> " + resolved)
+    }
+}
+
+pub fn cache_resolution: (name :&str constraint :&str version :&str) {
+    set cache_file = util::owl_home_cache_resolution()
+    set n = util::trim(name)
+    set c = util::trim(constraint)
+    set v = util::trim(version)
+    if n == "" || c == "" { return }
+    set entry = n + "|" + c + "=\"" + v + "\"\n"
+    use fs_write(cache_file entry)
+}
+
+pub fn get_cached_resolution: (name :&str constraint :&str) :str {
+    set cache_file = util::owl_home_cache_resolution()
+    if !fs_exists(cache_file) { return "" }
+    set content = fs::read(cache_file)
+    set n = util::trim(name)
+    set c = util::trim(constraint)
+    set prefix = n + "|" + c + "="
+    set pos = strings::index(content prefix)
+    if pos < 0 { return "" }
+    set after = strings::substr(content pos + len(prefix) 9999)
+    if !util::startswith(after "\"") { return "" }
+    set rest = strings::substr(after 1 9999)
+    set endq = strings::index(rest "\"")
+    if endq < 0 { return "" }
+    return strings::substr(rest 0 endq)
+}

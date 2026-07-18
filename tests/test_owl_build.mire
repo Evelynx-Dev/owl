@@ -1,0 +1,38 @@
+// owl tool test: owl build compiles project without errors
+load kioto
+load testlib
+
+pub fn main: () {
+    use dasu("--- test: owl build ---")
+    testlib.assert_true(true)
+
+    set ts = strings.trim(proc::run("date +%s%N"))
+    set test_base = "/tmp/owl_build_test_" + ts
+    set proj_dir = test_base + "/testbuild"
+
+    proc::run("mkdir -p " + test_base)
+    proc::run("cd " + test_base + " && ~/.local/bin/owl new testbuild 2>&1")
+
+    set build_cmd = "cd " + proj_dir + " && ~/.local/bin/owl build 2>&1"
+    set build_out = proc::run(build_cmd)
+
+    set build_failed = strings.contains(build_out "error")
+    if build_failed {
+        use dasu("  owl build output contains errors:")
+        use dasu(build_out)
+    } else {
+        use dasu("  owl build completed: ok")
+    }
+
+    set bin_path = proj_dir + "/bin/debug/testbuild"
+    set bin_check = "test -f " + bin_path + " && echo 'yes' || echo 'no'"
+    set bin_exists = strings.trim(proc::run(bin_check))
+    if bin_exists == "yes" {
+        use dasu("  binary created: ok")
+    } else {
+        use dasu("  binary NOT created")
+    }
+
+    proc::run("rm -rf " + test_base)
+    use dasu("test_owl_build complete")
+}

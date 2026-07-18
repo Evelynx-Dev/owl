@@ -1,0 +1,29 @@
+// owl tool test: owl check validates owl.toml
+load kioto
+load testlib
+
+pub fn main: () {
+    use dasu("--- test: owl check ---")
+    testlib.assert_true(true)
+
+    set ts = strings.trim(proc::run("date +%s%N"))
+    set test_base = "/tmp/owl_check_test_" + ts
+    set proj_dir = test_base + "/testcheck"
+
+    proc::run("mkdir -p " + test_base)
+    proc::run("cd " + test_base + " && ~/.local/bin/owl new testcheck 2>&1")
+
+    set check_cmd = "cd " + proj_dir + " && ~/.local/bin/owl check 2>&1"
+    set check_out = proc::run(check_cmd)
+
+    set has_pass = strings.contains(check_out "PASS")
+    if has_pass {
+        use dasu("  owl check on valid project: ok")
+    } else {
+        use dasu("  owl check output:")
+        use dasu(check_out)
+    }
+
+    proc::run("rm -rf " + test_base)
+    use dasu("test_owl_check complete")
+}

@@ -1,0 +1,201 @@
+load kioto
+load semver
+load util
+load crypto
+load trust
+load registry
+load build
+load check
+load info
+load ui
+load deps
+load args
+load lockfile
+load dload
+load install
+load export
+load gc
+load tree
+load profile
+
+extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
+extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
+
+fn expand_short_flags: (args :&vec[str]) :vec[str] {
+    set n = rt_vec_len(args)
+    set result = "" :str mut
+    set i = 0 :i64 mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if i == 0 {
+            set result = a
+        } else {
+            if util::startswith(a "-") && !util::startswith(a "--")
+               && len(a) > 2 {
+                set j = 1 :i64 mut
+                while j < len(a) {
+                    set ch = strings::substr(a j 1)
+                    set result = result + " -" + ch
+                    set j += 1
+                }
+            } else {
+                set result = result + " " + a
+            }
+        }
+        set i += 1
+    }
+    return strings::split(result " ")
+}
+
+fn find_cmd_index: (args :&vec[str]) :i64 {
+    set n = rt_vec_len(args)
+    set i = 1 :i64 mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if !util::startswith(a "-") {
+            return i
+        }
+        set i += 1
+    }
+    return 1
+}
+
+fn collect_test_flags: (args :&vec[str]) :str {
+    set n = rt_vec_len(args)
+    set i = 2 :i64 mut
+    set flags = "" :str mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if util::startswith(a "-") {
+            set flags = flags + " " + a
+        } else {
+            set flags = flags + " \"" + a + "\""
+        }
+        set i += 1
+    }
+    return flags
+}
+
+pub fn main: () {
+    set raw_args = env_args()
+    set args = expand_short_flags(raw_args)
+    set n = rt_vec_len(args)
+    if n <= 1 {
+        ui::print_help()
+        return
+    }
+
+    set cmd_idx = find_cmd_index(args)
+    set cmd = rt_vec_get_str(args cmd_idx)
+
+    if cmd == "-V" || cmd == "--version" {
+        use dasu("Owl v" + util::owl_version())
+        use dasu(util::compiler_version())
+        return
+    }
+
+    if cmd == "-h" || cmd == "--help" || cmd == "help" {
+        ui::print_help()
+        return
+    }
+
+    set a_build = args
+    set a_run = args
+    set a_new = args
+    set a_checkup = args
+    set a_check = args
+    set a_info = args
+    set a_clean = args
+    set a_test = args
+    set a_load = args
+    set a_export = args
+    set a_gc = args
+    set a_tree = args
+    set a_profile = args
+
+    if cmd == "-T" || cmd == "test" {
+        set out = proc::run("mire test " + collect_test_flags(a_test))
+        use dasu(out)
+        return
+    }
+
+    if cmd == "-B" || cmd == "build" {
+        build::compile_pipeline(a_build false)
+        return
+    }
+
+    if cmd == "run" || cmd == "-R" {
+        build::compile_pipeline(a_run true)
+        return
+    }
+
+    if cmd == "-N" || cmd == "new" {
+        if n <= 2 {
+            use dasu("Usage: owl new <Name>")
+            return
+        }
+        build::cmd_new(rt_vec_get_str(a_new 2))
+        return
+    }
+
+    if cmd == "-C" || cmd == "clean" {
+        info::cmd_clean(a_clean)
+        return
+    }
+
+    if cmd == "checkup" {
+        check::cmd_checkup(a_checkup)
+        return
+    }
+
+    if cmd == "check" || cmd == "-K" {
+        check::cmd_check(a_check)
+        return
+    }
+
+    if cmd == "info" || cmd == "-Q" {
+        info::cmd_info(a_info)
+        return
+    }
+
+    if cmd == "install" || cmd == "-S" {
+        set i_has_l = args::has_flag(args "-l") || args::has_flag(args "--list")
+        set i_has_t = args::has_flag(args "-t") || args::has_flag(args "--test")
+        set i_no_verify = args::has_flag(args "--no-verify")
+        set i_force = args::has_flag(args "--force")
+        set i_target = args::get_flag_value(args "--target")
+        set i_yes = args::has_flag(args "-y") || args::has_flag(args "--yes")
+        set i_name = args::get_positional(args 0)
+        set i_ver = args::get_positional(args 1)
+        set ec = install::cmd_install(i_has_l i_has_t i_no_verify i_force i_target i_yes i_name i_ver) :i64
+        if ec != 0 { proc_exit(ec) }
+        return
+    }
+
+    if cmd == "load" || cmd == "-L" {
+        dload::cmd_load(a_load)
+        return
+    }
+
+    if cmd == "-e" || cmd == "export" {
+        export::cmd_export(a_export)
+        return
+    }
+
+    if cmd == "gc" {
+        gc::cmd_gc(a_gc)
+        return
+    }
+
+    if cmd == "tree" {
+        tree::cmd_tree(a_tree)
+        return
+    }
+
+    if cmd == "profile" {
+        profile::cmd_profile(a_profile)
+        return
+    }
+
+    use dasu("use 'owl help' for available commands")
+}

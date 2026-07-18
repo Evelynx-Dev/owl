@@ -1,0 +1,51 @@
+module args
+load util
+
+extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
+extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
+
+pub fn has_flag: (args :&vec[str], flag :&str) :bool {
+    set n = rt_vec_len(args)
+    set i = 0 :i64 mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if a == flag { return true }
+        set i += 1
+    }
+    return false
+}
+
+pub fn get_flag_value: (args :&vec[str], flag :&str) :str {
+    set n = rt_vec_len(args)
+    set i = 0 :i64 mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if a == flag {
+            set next = i + 1
+            if next < n { return rt_vec_get_str(args next) }
+            return ""
+        }
+        set i += 1
+    }
+    return ""
+}
+
+pub fn get_positional: (args :&vec[str], nth :i64) :str {
+    set n = rt_vec_len(args)
+    set found = 0 :i64 mut
+    set skipped_cmd = false :bool mut
+    set i = 1 :i64 mut
+    while i < n {
+        set a = rt_vec_get_str(args i)
+        if !util::startswith(a "-") && a != "" {
+            if skipped_cmd == false {
+                set skipped_cmd = true
+            } else {
+                if found == nth { return a }
+                set found += 1
+            }
+        }
+        set i += 1
+    }
+    return ""
+}

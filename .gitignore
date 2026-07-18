@@ -1,0 +1,36 @@
+# Binarios compilados
+bin/
+bin/.cache/
+
+# Lock files generados por Avenys
+owl.lock
+project.lock
+Mire.lock
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporales
+*.tmp
+*.swp
+
+# Backups
+*.bak
+*.backup
+*.step.test
+*.full
+
+# Compiled binaries (root-level artifacts)
+owl
+owl_test
+
+# Generated test harness
+_test_harness.mire
+
+# Generated test lib symlink
+tests/lib
