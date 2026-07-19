@@ -55,8 +55,7 @@ fn find_cmd_index: (args :&vec[str]) :i64 {
     while i < n {
         set a = rt_vec_get_str(args i)
         if !use! util::startswith(a "-") {
-            set idx = i
-            break
+            if idx == -1 { set idx = i }
         }
         set i += 1
     }
