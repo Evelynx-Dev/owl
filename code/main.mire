@@ -32,13 +32,25 @@ fn expand_short_flags: (args :&vec[str]) :vec[str] {
         if i == 0 {
             set result = a
         } else {
-            if use! util::startswith(a "-") && !use! util::startswith(a "--")
-               && len(a) > 2 {
+            if use! util::startswith(a "-") && !use! util::startswith(a "--") && len(a) > 2 {
+                set is_short_flags = true :bool mut
                 set j = 1 :i64 mut
                 while j < len(a) {
                     set ch = strings::substr(a j 1)
-                    set result = result + " -" + ch
+                    if ch < "a" || ch > "z" {
+                        set is_short_flags = false
+                    }
                     set j += 1
+                }
+                if is_short_flags {
+                    set j = 1 :i64 mut
+                    while j < len(a) {
+                        set ch = strings::substr(a j 1)
+                        set result = result + " -" + ch
+                        set j += 1
+                    }
+                } else {
+                    set result = result + " " + a
                 }
             } else {
                 set result = result + " " + a
