@@ -135,34 +135,9 @@ pub fn cmd_checkup: (args :&vec[str]) {
 
     set all_ok = true :bool mut
 
-    use dasu("")
-    if !use! check::checkup_compiler() { set all_ok = false }
-
-    if use! util::has_project() {
-        use dasu("")
-        if !use! check::checkup_toml() { set all_ok = false }
-
-        if check_deps {
-            use dasu("")
-            if !use! check::checkup_deps() { set all_ok = false }
-        }
-
-        if check_loads {
-            use dasu("")
-            if !use! check::checkup_loads() { set all_ok = false }
-        }
-
-        if check_deps {
-            use dasu("")
-            if !use! lockfile::lockfile_validate() { set all_ok = false }
-        }
-
-        if check_cache {
-            use dasu("")
-            if !use! check::checkup_cache() { set all_ok = false }
-        }
-
-        if do_fix {
+    /! If --fix is used with fields, skip diagnostics and run only the fix !/
+    if do_fix && fix_fields != "" {
+        if use! util::has_project() {
             use dasu("")
             if use! util::contains(fix_fields "loads") {
                 use! check::fix_loads()
@@ -177,20 +152,52 @@ pub fn cmd_checkup: (args :&vec[str]) {
                     }
                 }
             }
+        } else {
+            use dasu("")
+            use dasu("  [FAIL] project: no owl.toml found")
         }
     } else {
+        /! Run full diagnostic checks !/
         use dasu("")
-        use dasu("  [FAIL] project: no owl.toml found")
-        set all_ok = false
-    }
+        if !use! check::checkup_compiler() { set all_ok = false }
 
-    use dasu("")
-    if all_ok {
-        use dasu("  [OK]   all checks passed")
-    } else {
-        if !do_fix {
-            use dasu("  [HINT] run 'owl checkup --fix <field>' to repair")
-            use dasu("         see 'owl checkup --help' for available options")
+        if use! util::has_project() {
+            use dasu("")
+            if !use! check::checkup_toml() { set all_ok = false }
+
+            if check_deps {
+                use dasu("")
+                if !use! check::checkup_deps() { set all_ok = false }
+            }
+
+            if check_loads {
+                use dasu("")
+                if !use! check::checkup_loads() { set all_ok = false }
+            }
+
+            if check_deps {
+                use dasu("")
+                if !use! lockfile::lockfile_validate() { set all_ok = false }
+            }
+
+            if check_cache {
+                use dasu("")
+                if !use! check::checkup_cache() { set all_ok = false }
+            }
+        } else {
+            use dasu("")
+            use dasu("  [FAIL] project: no owl.toml found")
+            set all_ok = false
+        }
+
+        use dasu("")
+        if all_ok {
+            use dasu("  [OK]   all checks passed")
+        } else {
+            if !do_fix {
+                use dasu("  [HINT] run 'owl checkup --fix <field>' to repair")
+                use dasu("         see 'owl checkup --help' for available options")
+            }
         }
     }
 }
@@ -435,20 +442,35 @@ fn checkup_loads: () :bool {
 
         if pkg != "" {
             set total += 1
-            set pkg_dir = lib_dir + "/" + pkg
-            if fs::exists(pkg_dir) {
-                set toml_path = pkg_dir + "/owl.toml"
-                if fs::exists(toml_path) {
-                    use dasu("  [OK]   loads/" + pkg + " -> " + pkg_dir)
-                    set resolved += 1
-                } else {
-                    use dasu("  [WARN] loads/" + pkg + ": directory exists but no owl.toml")
-                    set ok = false
-                }
+            set found = false :bool mut
+
+            /! Extract base package name (before ::) for deps check !/
+            set pkg_base = pkg :str mut
+            set dotdot = strings::index(pkg "::")
+            if dotdot >= 0 { set pkg_base = strings::substr(pkg 0 dotdot) }
+
+            /! First check if base package is in deps (validated by checkup_deps) !/
+            set pkg_copy = pkg_base :str mut
+            if use! deps::dep_exists(pkg_copy) {
+                use dasu("  [OK]   loads/" + pkg + " -> (from deps)")
+                set found = true
             } else {
-                use dasu("  [FAIL] loads/" + pkg + ": not found in " + use! util::owl_home_libs_display())
-                set ok = false
+                /! Fallback: check ~/.owl/libs/ using base package name !/
+                set pkg_dir = lib_dir + "/" + pkg_base :str mut
+                if fs::exists(pkg_dir) {
+                    set toml_path = pkg_dir + "/owl.toml" :str mut
+                    if fs::exists(toml_path) {
+                        use dasu("  [OK]   loads/" + pkg + " -> " + pkg_dir + " (from libs)")
+                        set found = true
+                    } else {
+                        use dasu("  [WARN] loads/" + pkg + ": directory exists but no owl.toml")
+                    }
+                } else {
+                    use dasu("  [FAIL] loads/" + pkg + ": not found in deps or " + use! util::owl_home_libs_display())
+                }
             }
+
+            if found { set resolved += 1 }
         }
     }
 

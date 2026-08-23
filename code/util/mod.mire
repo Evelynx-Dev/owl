@@ -349,14 +349,14 @@ pub fn grep_load: (dep :str) :bool {
     return use! util::trim(out) != ""
 }
 
-/! Scans code/ and tests/ for `load <name>` statements and returns
-   a newline-separated list of unique package names found.
-   Only top-level names are returned (first segment before ::).
+/! Scans code/ and tests/ for external `load <name>` statements (not `load!`)
+   and returns a newline-separated list of unique package names found.
+   Full package names including :: segments are returned.
 !/
 pub fn scan_load_packages: () :str {
     set grep_args = [] :vec[str] mut
     set grep_args = vec::push::str(grep_args "-roh")
-    set grep_args = vec::push::str(grep_args "load [a-zA-Z][a-zA-Z0-9_]*")
+    set grep_args = vec::push::str(grep_args "^load [a-zA-Z][a-zA-Z0-9_:]*")
     set grep_args = vec::push::str(grep_args "code")
     set grep_args = vec::push::str(grep_args "tests")
     set raw = proc::run::output("grep" grep_args)
@@ -367,11 +367,13 @@ pub fn scan_load_packages: () :str {
     while i < n {
         set line = use! util::trim(use! util::list_get(lines i))
         if use! util::startswith(line "load ") {
-                        set pkg = strings::substr(line 5 9999) :str mut
+            set pkg = strings::substr(line 5 9999) :str mut
             if pkg != "" {
-                set dot = strings::index(pkg "::")
-                if dot >= 0 { set pkg = strings::substr(pkg 0 dot) }
-                if result == "" { set result = pkg } else { set result = result + "\n" + pkg }
+                set space = strings::index(pkg " ")
+                if space >= 0 { set pkg = strings::substr(pkg 0 space) }
+                if pkg != "" && !use! util::contains(result pkg + "\n") && !use! util::startswith(result pkg + "\n") && result != pkg {
+                    if result == "" { set result = pkg } else { set result = result + "\n" + pkg }
+                }
             }
         }
         set i += 1
