@@ -1,3 +1,5 @@
+module build
+
 load! /code/util
 load! /code/lockfile
 load! /code/deps

@@ -1,3 +1,5 @@
+module trust
+
 load! /code/util
 
 /! Exact-match line lookup: a fingerprint matches only a whole

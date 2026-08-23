@@ -1,3 +1,5 @@
+module profile
+
 load! /code/util
 
 pub fn cmd_profile: (args :&vec[str]) {

@@ -1,3 +1,5 @@
+module install
+
 load! /code/util
 load! /code/crypto
 load! /code/semver

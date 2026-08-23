@@ -1,3 +1,5 @@
+module check
+
 load! /code/util
 load! /code/deps
 load! /code/lockfile

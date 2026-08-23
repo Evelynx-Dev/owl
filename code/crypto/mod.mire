@@ -1,3 +1,5 @@
+module crypto
+
 load! /code/util
 
 pub fn crypto_tempdir: (prefix :str) :str {

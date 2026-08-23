@@ -1,3 +1,5 @@
+module lockfile
+
 load! /code/util
 
 pub fn lockfile_exists: () :bool {

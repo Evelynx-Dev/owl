@@ -1,3 +1,5 @@
+module semver
+
 load! /code/util
 
 pub fn parse_version: (ver :&str) :str {

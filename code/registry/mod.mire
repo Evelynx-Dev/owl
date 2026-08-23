@@ -1,3 +1,5 @@
+module registry
+
 load! /code/util
 load! /code/crypto
 load! /code/trust

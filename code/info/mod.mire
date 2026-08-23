@@ -1,3 +1,5 @@
+module info
+
 load! /code/util
 load! /code/deps
 

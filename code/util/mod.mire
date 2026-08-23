@@ -1,3 +1,4 @@
+module util
 
 // NOTE: 9999 is used as "rest of string" length in strings::substr calls
 // throughout the codebase. It works because substr clamps to string bounds.

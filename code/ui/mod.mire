@@ -1,3 +1,5 @@
+module ui
+
 load! /code/util
 
 pub fn print_banner: () {

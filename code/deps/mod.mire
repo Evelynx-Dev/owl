@@ -1,3 +1,5 @@
+module deps
+
 load! /code/util
 
 pub fn deps_section: () :str {

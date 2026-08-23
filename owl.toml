@@ -15,6 +15,25 @@ tests = "tests"
 output = "bin"
 cache = "bin/.cache"
 
+[exports]
+owl = "code/main.mire"
+util = "code/util"
+crypto = "code/crypto"
+trust = "code/trust"
+registry = "code/registry"
+install = "code/install"
+build = "code/build"
+check = "code/check"
+info = "code/info"
+ui = "code/ui"
+args = "code/args"
+deps = "code/deps"
+lockfile = "code/lockfile"
+gc = "code/gc"
+profile = "code/profile"
+tree = "code/tree"
+export = "code/export"
+upgrade = "code/upgrade"
 [dependencies]
 kioto = { path = "~/.owl/libs/kioto" }
 testlib = { path = "./tests/lib" }
