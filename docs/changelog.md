@@ -1,5 +1,27 @@
 # Owl Changelog
 
+## [0.31.1] - 2026-08-24
+
+### Fixed
+
+- **Module declarations missing in 18 submodules**: all `code/*/mod.mire`
+  files (`args`, `build`, `check`, `crypto`, `deps`, `dload`, `export`, `gc`,
+  `info`, `install`, `lockfile`, `profile`, `registry`, `semver`, `tree`,
+  `trust`, `ui`, `util`) now declare their `module` name as the first line.
+  Without this, `use! util::startswith(...)` and similar self-referencing calls
+  resolved to `Unknown function 'util.startswith'` because the compiler
+  couldn't find the module's own exports.
+- **`util/mod.mire` restored from HEAD**: the working copy had duplicated
+  blocks (~6 copies of `expand_home`, `string_to_i64`, etc.) and was missing
+  ~26 functions (`startswith`, `trim`, `substr`, `has_project`, `fs_make_*`,
+  etc.) that other modules depend on. Restored from the committed version.
+- **Exports added to `owl.toml`**: all owl submodules are now listed in
+  `[exports]` so they can be loaded by external projects.
+
+### Removed
+
+- Debug `use dasu("DEBUG: ...")` lines removed from `code/main.mire`.
+
 ## [0.31.0] - 2026-08-06
 
 ### Fixed

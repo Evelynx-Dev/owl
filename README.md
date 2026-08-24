@@ -1,4 +1,4 @@
-# Owl v0.31.0
+# Owl v0.31.1
 
 Package and project manager for the [Mire](https://github.com/mire-lang) (Avenys) language.
 Written in Mire, compiled by Avenys.

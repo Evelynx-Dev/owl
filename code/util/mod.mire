@@ -202,7 +202,7 @@ pub fn owl_home_keys: () :str {
 
 /! Version and compiler info !/
 pub fn owl_version: () :str {
-    return "0.30.0"
+    return "0.31.1"
 }
 
 pub fn compiler_version: () :str {
