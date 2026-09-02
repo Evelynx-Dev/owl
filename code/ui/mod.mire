@@ -34,7 +34,7 @@ pub fn print_help: () {
     use dasu("  load  -Ll                list registries")
     use dasu("  load  -Ls                sync registries")
     use dasu("  load  -Lr <name>         remove registry")
-    use dasu("  install -S  <name> [ver] download and install package")
+    use dasu("  install -S  [<name> [ver]] resolve/install dependencies")
     use dasu("  install -S  --lock       install all packages from owl.lock")
     use dasu("  export -e  [--check|--dry-run]  package and sign")
     use dasu("  deps   --prune           remove unused dependencies")

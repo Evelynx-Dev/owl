@@ -1,7 +1,6 @@
 module install
 
 load! /code/util
-load! /code/crypto
 load! /code/semver
 load! /code/lockfile
 
@@ -16,13 +15,19 @@ pub fn cmd_install: (has_l :bool has_t :bool no_verify :bool force :bool target_
     } else {
         set is_empty = len(name) == 0
         if is_empty {
-            if has_t { use dasu("Usage: owl install -t <name>") } else {
-                if target_val == "d" || target_val == "r" { use! install::cmd_target_install(target_val "") } else {
-                    use dasu("Usage: owl install [-l] [-t] [--lock] [--target=d|r] <name> [version]")
-                    use dasu("  -l, --list   List packages from all registries")
-                    use dasu("  -t, --test   Test install")
-                    use dasu("  --lock       Install all packages from owl.lock")
-                    use dasu("  --target=d|r Install compiled binary to owl cache")
+            if has_lock {
+                use! lockfile::lockfile_install_all()
+            } else {
+                if has_t { use dasu("Usage: owl install -t <name>") } else {
+                    use dasu("  resolving dependencies from owl.toml ...")
+                    set regenerated = use! lockfile::generate_lockfile()
+                    if regenerated {
+                        use dasu("  owl.lock updated")
+                        use! lockfile::lockfile_install_all()
+                    } else {
+                        use dasu("  error: could not generate owl.lock")
+                        set ec = 1 :u8
+                    }
                 }
             }
         } else {
@@ -36,7 +41,8 @@ pub fn cmd_install: (has_l :bool has_t :bool no_verify :bool force :bool target_
 
 pub fn cmd_list_packages: () {
     set reg_dir = use! util::owl_home_registries()
-    set reg_list = use! util::trim(proc::run::output("ls" ["-1" strings::copy(reg_dir)]))
+    set reg_arg = strings::copy(reg_dir)
+    set reg_list = use! util::trim_command("ls" ["-1" reg_arg])
     if len(reg_list) == 0 {
         use dasu("  no registries configured -- run: owl load --url <registry-url>")
     } else {
@@ -93,7 +99,8 @@ pub fn cmd_install_pkg: (name :str version :str no_verify :bool force :bool) :u8
     set pkg_name = name :str
 
     set reg_dir = use! util::owl_home_registries()
-    set reg_list = use! util::trim(proc::run::output("ls" ["-1" strings::copy(reg_dir)]))
+    set reg_arg2 = strings::copy(reg_dir)
+    set reg_list = use! util::trim_command("ls" ["-1" reg_arg2])
     if reg_list != "" {
         set entries = use! util::split(reg_list "\n")
         set ni = len(entries)
@@ -109,7 +116,7 @@ pub fn cmd_install_pkg: (name :str version :str no_verify :bool force :bool) :u8
                 set gargs = vec::push::str(gargs "-A15")
                 set gargs = vec::push::str(gargs strings::copy(grep_pattern))
                 set gargs = vec::push::str(gargs strings::copy(idx_path))
-                set grep_out = use! util::trim(proc::run::output("grep" gargs))
+                set grep_out = use! util::trim_command("grep" gargs)
                 if grep_out != "" {
                     set glines = strings::split(grep_out "\n")
                     set gnl = len(glines)
@@ -204,7 +211,12 @@ pub fn cmd_install_pkg: (name :str version :str no_verify :bool force :bool) :u8
     }
 
     if ec == 0 && method == "clone" {
-        return use! install::cmd_install_clone(strings::copy(pkg_name) strings::copy(pkg_ver) strings::copy(repo) strings::copy(ref_val) strings::copy(commit_val))
+        set clone_name = use! util::copy_value(pkg_name)
+        set clone_version = use! util::copy_value(pkg_ver)
+        set clone_repo = use! util::copy_value(repo)
+        set clone_ref = use! util::copy_value(ref_val)
+        set clone_commit = use! util::copy_value(commit_val)
+        return use! install::cmd_install_clone(clone_name clone_version clone_repo clone_ref clone_commit)
     }
 
     set reg_url = "" :str mut
@@ -250,7 +262,8 @@ pub fn cmd_install_pkg: (name :str version :str no_verify :bool force :bool) :u8
     }
 
     if ec == 0 {
-        set file_size = use! util::trim(proc::run::output("stat" ["-c" "%s" strings::copy(tarball_file)]))
+        set tarball_arg = strings::copy(tarball_file)
+        set file_size = use! util::trim_command("stat" ["-c" "%s" tarball_arg])
         if file_size == "0" {
             set rm1 = [] :vec[str] mut
             set rm1 = vec::push::str(rm1 "-f")
@@ -327,7 +340,7 @@ pub fn cmd_install_pkg: (name :str version :str no_verify :bool force :bool) :u8
                 use dasu("  verifying Ed25519 signature...")
                 set tf_copy = strings::copy(tarball_file)
                 set sf_copy = strings::copy(sig_file)
-                if !use! crypto::crypto_verify_ed25519_sigfile(pubkey tf_copy sf_copy) {
+                if !crypto::crypto_verify_ed25519_sigfile(pubkey tf_copy sf_copy) {
                     set rm6 = [] :vec[str] mut
                     set rm6 = vec::push::str(rm6 "-f")
                     set rm6 = vec::push::str(rm6 strings::copy(tarball_file))
@@ -390,7 +403,8 @@ pub fn cmd_install_clone: (name :str version :str repo :str ref_val :str commit_
     set dest = libs_dir_copy + "/" + name
     set dest_copy = strings::copy(dest)
     if fs::exists(strings::copy(dest_copy)) {
-        use! util::rm_RF(strings::copy(dest_copy))
+        set cleanup_path = strings::copy(dest_copy)
+        use! util::rm_RF(cleanup_path)
     }
 
     use dasu("  cloning " + repo + " ...")
@@ -413,7 +427,7 @@ pub fn cmd_install_clone: (name :str version :str repo :str ref_val :str commit_
     set git_args = vec::push::str(git_args strings::copy(clone_url))
     set git_args = vec::push::str(git_args strings::copy(dest_copy))
     use proc::run::output("git" git_args)
-    if use! proc::run::last_exit() != 0 {
+    if use proc::run::last_exit() != 0 {
         use dasu("  error: git clone failed")
         return 1 :u8
     }
@@ -424,9 +438,10 @@ pub fn cmd_install_clone: (name :str version :str repo :str ref_val :str commit_
         set rev_args = vec::push::str(rev_args strings::copy(dest_copy))
         set rev_args = vec::push::str(rev_args "rev-parse")
         set rev_args = vec::push::str(rev_args "HEAD")
-        set head = use! util::trim(proc::run::output("git" rev_args))
+        set head = use! util::trim_command("git" rev_args)
         if head != commit_val {
-            use! util::rm_RF(strings::copy(dest_copy))
+            set cleanup_path2 = strings::copy(dest_copy)
+            use! util::rm_RF(cleanup_path2)
             use dasu("  error: cloned commit " + head + " does not match pinned commit " + commit_val)
             return 1 :u8
         }
@@ -445,7 +460,8 @@ pub fn cmd_install_clone: (name :str version :str repo :str ref_val :str commit_
         use fs::write(meta_path meta)
     }
 
-    use! util::fs_make_readonly(strings::copy(dest_copy))
+    set readonly_dest = strings::copy(dest_copy)
+    use! util::fs_make_readonly(readonly_dest)
     use dasu("  installed " + name + " v" + version + " (clone from " + repo + ")")
     return ec
 }
@@ -481,7 +497,7 @@ pub fn cmd_target_install: (target_val :str named :str) {
                 set ls_args = [] :vec[str] mut
                 set ls_args = vec::push::str(ls_args "-1")
                 set ls_args = vec::push::str(ls_args strings::copy(bin_path))
-                set listing = use! util::trim(proc::run::output("ls" ls_args))
+                set listing = use! util::trim_command("ls" ls_args)
                 set files = use! util::split(listing "\n")
                 set nf = len(files)
                 set j = 0 :i64 mut

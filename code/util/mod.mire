@@ -3,6 +3,48 @@ module util
 // NOTE: 9999 is used as "rest of string" length in strings::substr calls
 // throughout the codebase. It works because substr clamps to string bounds.
 
+pub fn trim_command: (command :&str args :vec[str]) :str {
+    set output = proc::run::output(command args)
+    return strings::trim(output)
+}
+
+pub fn path_exists: (path :&str) :bool {
+    return fs::exists(path)
+}
+
+pub fn copy_value: (value :&str) :str {
+    return strings::copy(value)
+}
+
+pub fn trim_command_cwd: (command :&str args :vec[str] cwd :&str inherit :bool) :str {
+    set output = proc::run::output_cwd(command args cwd inherit)
+    return strings::trim(output)
+}
+
+pub fn trim_value: (value :str) :str {
+    return strings::trim(value)
+}
+
+pub fn read_line_trim: () :str {
+    set line = proc::run::read_line()
+    return strings::trim(line)
+}
+
+pub fn trim_substr: (s :&str start :i64 length :i64) :str {
+    set part = strings::substr(s start length)
+    return strings::trim(part)
+}
+
+pub fn trim_substr: (s :&str start :i64 length :i64) :str {
+    set part = strings::substr(s start length)
+    return strings::trim(part)
+}
+
+pub fn substr_i64: (s :&str start :i64 length :i64) :i64 {
+    set part = strings::substr(s start length)
+    return use! util::string_to_i64(part)
+}
+
 // TOML parser (helpers first)
 fn toml_extract_val: (content :&str, val_start :i64) :str {
     set val = "" :str mut
@@ -12,12 +54,9 @@ fn toml_extract_val: (content :&str, val_start :i64) :str {
     if nl_pos >= 0 { set raw_val = strings::substr(after_key 0 nl_pos) }
     set trimmed = strings::trim(raw_val)
     if strings::starts::with(trimmed "\"") && strings::ends::with(trimmed "\"") {
-        set no_start = strings::replace::all(trimmed "\"" "")
-        if strings::ends::with(no_start "\"") {
-            set val = strings::replace::all(no_start "\"" "")
-        } else {
-            set val = no_start
-        }
+        set trimmed_len = strings::len(trimmed)
+        set inner_len = trimmed_len - 2
+        set val = strings::substr(trimmed 1 inner_len)
     } else {
         set val = trimmed
     }
@@ -202,12 +241,12 @@ pub fn owl_home_keys: () :str {
 
 /! Version and compiler info !/
 pub fn owl_version: () :str {
-    return "0.31.1"
+    return "1.0.0"
 }
 
 pub fn compiler_version: () :str {
     set ver = "" :str mut
-    set v = use! util::trim(proc::run::output("mire" ["--version"]))
+    set v = use! util::trim_command("mire" ["--version"])
     if v != "" {
         set ver = v
     } else {
@@ -393,7 +432,8 @@ pub fn record_build: () {
     set count = 0 :i64 mut
     if fs::exists(status_path) {
         set content = fs::read(status_path)
-        set c = use! util::toml_get_from_string(strings::copy(content) "build" "build_count") :str mut
+        set content_copy = strings::copy(content)
+        set c = use! util::toml_get_from_string(content_copy "build" "build_count") :str mut
         if c != "" { set count = use! util::string_to_i64(c) }
     }
     set count += 1

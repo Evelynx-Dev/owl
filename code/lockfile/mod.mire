@@ -28,7 +28,7 @@ pub fn lockfile_in_sync: () :bool {
                         if use! util::trim(lrem) != "" { set lock_count += 1 }
                         set lcount_pos = lock_str_len
                     } else {
-                        if use! util::trim(strings::substr(lock_str lcount_pos lnl)) != "" { set lock_count += 1 }
+                        if use! util::trim_substr(lock_str lcount_pos lnl) != "" { set lock_count += 1 }
                         set lcount_pos = lcount_pos + lnl + 1
                     }
                 }
@@ -138,7 +138,7 @@ pub fn lockfile_count_names: (names :str) :i64 {
                 if use! util::trim(remaining) != "" { set count += 1 }
                 set running = false
             } else {
-                if use! util::trim(strings::substr(names pos nl)) != "" { set count += 1 }
+                if use! util::trim_substr(names pos nl) != "" { set count += 1 }
                 set pos = pos + nl + 1
                 if pos >= nlen { set running = false }
             }
@@ -228,7 +228,8 @@ pub fn generate_lockfile: () :bool {
                     set registry = use! deps::get_dep_field(dname4 "registry") :str mut
                     if registry == "" && path == "" {
                         set reg_dir = use! util::owl_home_registries()
-                        set reg_list = use! util::trim(proc::run::output("ls" ["-1" strings::copy(reg_dir)]))
+                        set reg_arg = strings::copy(reg_dir)
+                        set reg_list = use! util::trim_command("ls" ["-1" reg_arg])
                         set rpos = 0 :i64 mut
                         set rlen = len(reg_list)
                         set resolved = false :bool mut
@@ -247,7 +248,7 @@ pub fn generate_lockfile: () :bool {
                                     set grep_args = vec::push::str(grep_args "-c")
                                     set grep_args = vec::push::str(grep_args strings::copy("^name = \"" + dep_name + "\""))
                                     set grep_args = vec::push::str(grep_args strings::copy(idx_path))
-                                    set grep_out = use! util::trim(proc::run::output("grep" grep_args))
+                                    set grep_out = use! util::trim_command("grep" grep_args)
                                     if grep_out != "0" && grep_out != "" {
                                         set registry = rname
                                         set resolved = true
@@ -304,7 +305,9 @@ pub fn ensure_lockfile: () :bool {
         if use! lockfile::lockfile_in_sync() {
             set ok = true
         } else {
-            use dasu("  owl.lock is out of sync with owl.toml - run owl install to update")
+            use dasu("  owl.lock is out of sync with owl.toml - updating it now")
+            set ok = use! lockfile::generate_lockfile()
+            if !ok { use dasu("  error: could not update owl.lock") }
         }
     } else {
         use dasu("  owl.lock not found - generating from owl.toml ...")
@@ -393,7 +396,9 @@ pub fn lockfile_validate: () :bool {
                     } else {
                         set toml_check = pkg_path_check + "/owl.toml"
                         if !fs::exists(toml_check) {
-                            use dasu("  [WARN] lockfile/" + pkg_name + ": path exists but no owl.toml")
+                            if !use! util::startswith(pkg_path "./") {
+                                use dasu("  [WARN] lockfile/" + pkg_name + ": path exists but no owl.toml")
+                            }
                         }
                     }
                 } else {
@@ -455,7 +460,7 @@ pub fn lockfile_get_field: (pkg_name :str field :str) :str {
         if field == "abi" {
             set vend = strings::index(after_val "\n") :i64 mut
             if vend < 0 { set vend = len(after_val) }
-            set val = use! util::trim(strings::substr(after_val 0 vend))
+            set val = use! util::trim_substr(after_val 0 vend)
         } else {
             set vend = strings::index(after_val "\"")
             if vend >= 0 { set val = strings::substr(after_val 0 vend) }
@@ -577,7 +582,7 @@ fn lockfile_install_one: (pkg_name :str pkg_ver :str registry_name :str) {
     set grep_args = vec::push::str(grep_args "10")
     set grep_args = vec::push::str(grep_args strings::copy(pattern))
     set grep_args = vec::push::str(grep_args strings::copy(idx_path))
-    set grep_out = use! util::trim(proc::run::output("grep" grep_args))
+    set grep_out = use! util::trim_command("grep" grep_args)
 
     if grep_out == "" {
         use dasu("  [FAIL] " + pkg_name + ": not found in registry '" + registry_name + "'")
@@ -656,7 +661,7 @@ fn lockfile_install_one: (pkg_name :str pkg_ver :str registry_name :str) {
     set stat_args = vec::push::str(stat_args "-c")
     set stat_args = vec::push::str(stat_args "%s")
     set stat_args = vec::push::str(stat_args strings::copy(tarball_file))
-    set file_size = use! util::trim(proc::run::output("stat" stat_args))
+    set file_size = use! util::trim_command("stat" stat_args)
     if file_size == "0" {
         use proc::run::output("rm" ["-f" strings::copy(tarball_file)])
         use dasu("  [FAIL] " + pkg_name + ": download failed (empty file)")
@@ -667,7 +672,7 @@ fn lockfile_install_one: (pkg_name :str pkg_ver :str registry_name :str) {
         use dasu("    verifying SHA-256...")
         set sum_args = [] :vec[str] mut
         set sum_args = vec::push::str(sum_args strings::copy(tarball_file))
-        set sum_raw = use! util::trim(proc::run::output("sha256sum" sum_args))
+    set sum_raw = use! util::trim_command("sha256sum" sum_args)
         set sum_parts = strings::split(sum_raw " ")
         set actual = use! util::trim(use! util::list_get(sum_parts 0))
         if actual != "" && actual != sha256_line {

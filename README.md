@@ -1,4 +1,4 @@
-# Owl v0.31.1
+# Owl v1.0.0
 
 Package and project manager for the [Mire](https://github.com/mire-lang) (Avenys) language.
 Written in Mire, compiled by Avenys.
@@ -106,11 +106,11 @@ load kioto              # makes kioto namespace available
 load blu::parse         # specific submodule from blu
 load sdl::sdl3          # submodule from sdl
 
-# Usage requires use!
+# External package calls are direct; local module calls use `use!`.
 pub fn main: () {
-    use! kioto::strings::concat("a" "b")
-    use! blu::parse::load_file("style.css")
-    use! sdl::sdl3::create_window("title" 800 600)
+    set text = kioto::strings::concat("a" "b")
+    set style = blu::parse::load_file("style.css")
+    set window = sdl::sdl3::create_window("title" 800 600)
 }
 ```
 
@@ -210,6 +210,7 @@ Owl generates `owl.lock` automatically when you build or install. The lockfile
 pins exact versions and paths for reproducible installs.
 
 ```bash
+owl install           # Resolve owl.toml and update/install owl.lock
 owl install --lock   # Install all packages from owl.lock
 ```
 

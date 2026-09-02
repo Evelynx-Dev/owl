@@ -43,7 +43,7 @@ pub fn cmd_upgrade: (args :&vec[str]) :i64 {
     set clone_args = vec::push::str(clone_args "1")
     set clone_args = vec::push::str(clone_args strings::copy(remote_url))
     set clone_args = vec::push::str(clone_args strings::copy(tmp_dir))
-    set clone_out = use! util::trim(proc::run::output("git" clone_args))
+    set clone_out = use! util::trim_command("git" clone_args)
     set clone_ok = clone_out
     if strings::contains(clone_ok "fatal") || strings::contains(clone_ok "error") {
         use dasu("error: git clone failed")
@@ -70,7 +70,8 @@ pub fn cmd_upgrade: (args :&vec[str]) :i64 {
     set build_args = vec::push::str(build_args "build")
     set build_args = vec::push::str(build_args "code/main.mire")
     set build_args = vec::push::str(build_args "--release")
-    set build_out = use! util::trim(proc::run::output_cwd("mire" build_args strings::copy(tmp_dir) true))
+    set build_cwd = strings::copy(tmp_dir)
+    set build_out = use! util::trim_command_cwd("mire" build_args build_cwd true)
     if !fs::exists(new_bin) {
         use dasu("error: build failed")
         use dasu(build_out)
@@ -99,7 +100,7 @@ pub fn cmd_upgrade: (args :&vec[str]) :i64 {
     set inst_args = vec::push::str(inst_args "0755")
     set inst_args = vec::push::str(inst_args strings::copy(new_bin))
     set inst_args = vec::push::str(inst_args strings::copy(owl_bin))
-    set install_out = use! util::trim(proc::run::output("install" inst_args))
+    set install_out = use! util::trim_command("install" inst_args)
     if strings::contains(install_out "Permission denied") || strings::contains(install_out "No such file") {
         use dasu("error: install failed - permission denied or path not found")
         use dasu("try running with sudo:")

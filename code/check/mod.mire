@@ -207,7 +207,7 @@ pub fn cmd_checkup: (args :&vec[str]) {
 /! Check compiler installation !/
 fn checkup_compiler: () :bool {
     set ok = true :bool mut
-    set compiler_out = use! util::trim(proc::run::output("mire" ["--version"]))
+    set compiler_out = use! util::trim_command("mire" ["--version"])
     if compiler_out == "" {
         use dasu("  [FAIL] compiler: mire not found")
         use dasu("         install mire (Avenys) to compile projects")
@@ -377,8 +377,24 @@ fn checkup_deps: () :bool {
                     set toml_name = toml_check :str
                     set toml_ver = toml_check :str
                     if !fs::exists(toml_check) {
-                        use dasu("  [FAIL] deps/" + pkg + ": no owl.toml at " + dp_msg)
-                        set ok = false
+                        if use! util::startswith(dp_msg "./") {
+                            set local_find_args = [] :vec[str] mut
+                            set local_find_args = vec::push::str(local_find_args "-L")
+                            set local_find_args = vec::push::str(local_find_args strings::copy(dp_find))
+                            set local_find_args = vec::push::str(local_find_args "-name")
+                            set local_find_args = vec::push::str(local_find_args "*.mire")
+                            set local_mire_files = use! util::trim_command("find" local_find_args)
+                            if len(local_mire_files) > 0 {
+                                use dasu("  [OK]   deps/" + pkg + " -> local source " + dp_msg)
+                                set loadable += 1
+                            } else {
+                                use dasu("  [FAIL] deps/" + pkg + ": no .mire files at " + dp_msg)
+                                set ok = false
+                            }
+                        } else {
+                            use dasu("  [FAIL] deps/" + pkg + ": no owl.toml at " + dp_msg)
+                            set ok = false
+                        }
                     } else {
                         set pkg_name = use! util::toml_get(toml_name "project" "name")
                         if pkg_name == "" {
@@ -390,7 +406,7 @@ fn checkup_deps: () :bool {
                             set find_args = vec::push::str(find_args strings::copy(dp_find))
                             set find_args = vec::push::str(find_args "-name")
                             set find_args = vec::push::str(find_args "*.mire")
-                            set mire_files = use! util::trim(proc::run::output("find" find_args))
+                            set mire_files = use! util::trim_command("find" find_args)
                             set mire_count = len(use! util::split(mire_files "\n"))
                             if mire_count == 0 {
                                 use dasu("  [FAIL] deps/" + pkg + ": no .mire files (cannot be loaded)")
@@ -501,7 +517,8 @@ fn checkup_cache: () :bool {
     set find_args1 = vec::push::str(find_args1 strings::copy(cache_dir))
     set find_args1 = vec::push::str(find_args1 "-type")
     set find_args1 = vec::push::str(find_args1 "f")
-    set file_count = len(use! util::split(use! util::trim(proc::run::output("find" find_args1)) "\n"))
+    set file_listing1 = use! util::trim_command("find" find_args1)
+    set file_count = len(use! util::split(file_listing1 "\n"))
 
     if file_count == 0 {
         use dasu("  [WARN] cache: " + cache_dir + " is empty")
@@ -513,7 +530,8 @@ fn checkup_cache: () :bool {
     set find_args2 = vec::push::str(find_args2 "-type")
     set find_args2 = vec::push::str(find_args2 "f")
     set find_args2 = vec::push::str(find_args2 "-empty")
-    set empty_count = len(use! util::split(use! util::trim(proc::run::output("find" find_args2)) "\n"))
+    set file_listing2 = use! util::trim_command("find" find_args2)
+    set empty_count = len(use! util::split(file_listing2 "\n"))
 
     if empty_count != 0 {
         use dasu("  [FAIL] cache: " + use! util::i64_to_string(empty_count) + " empty/corrupt files found")
@@ -530,7 +548,8 @@ fn checkup_cache: () :bool {
         set find_args3 = vec::push::str(find_args3 "*.mire")
         set find_args3 = vec::push::str(find_args3 "-newer")
         set find_args3 = vec::push::str(find_args3 strings::copy(cache_dir))
-        set stale_count = len(use! util::split(use! util::trim(proc::run::output("find" find_args3)) "\n"))
+    set file_listing3 = use! util::trim_command("find" find_args3)
+    set stale_count = len(use! util::split(file_listing3 "\n"))
 
         if stale_count != 0 {
             use dasu("  [WARN] cache: stale (" + use! util::i64_to_string(stale_count) + " source files modified after cache)")
@@ -539,7 +558,7 @@ fn checkup_cache: () :bool {
             set du_args = [] :vec[str] mut
             set du_args = vec::push::str(du_args "-sh")
             set du_args = vec::push::str(du_args strings::copy(cache_dir))
-            set size_out = use! util::trim(proc::run::output("du" du_args)) :str mut
+            set size_out = use! util::trim_command("du" du_args) :str mut
             if size_out == "" { set size_out = "?" }
             set size_val = use! util::split(size_out "\t")
             set size_display = use! util::list_get(size_val 0) :str mut
@@ -670,10 +689,10 @@ pub fn cmd_check: (args :&vec[str]) {
             set nl = strings::index(strings::substr(names pos nlen - pos) "\n")
             set key = "" :str mut
             if nl < 0 {
-                set key = use! util::trim(strings::substr(names pos nlen - pos))
+                            set key = use! util::trim_substr(names pos nlen - pos)
                 set pos = nlen
             } else {
-                set key = use! util::trim(strings::substr(names pos nl))
+                            set key = use! util::trim_substr(names pos nl)
                 set pos = pos + nl + 1
             }
             if key != "" {
@@ -715,10 +734,10 @@ pub fn cmd_check: (args :&vec[str]) {
                 set nl2 = strings::index(strings::substr(names pos2 nlen2 - pos2) "\n")
                 set key2 = "" :str mut
                 if nl2 < 0 {
-                    set key2 = use! util::trim(strings::substr(names pos2 nlen2 - pos2))
+                    set key2 = use! util::trim_substr(names pos2 nlen2 - pos2)
                     set pos2 = nlen2
                 } else {
-                    set key2 = use! util::trim(strings::substr(names pos2 nl2))
+                    set key2 = use! util::trim_substr(names pos2 nl2)
                     set pos2 = pos2 + nl2 + 1
                 }
                 if key2 != "" {

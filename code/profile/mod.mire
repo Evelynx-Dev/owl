@@ -24,7 +24,7 @@ pub fn cmd_profile: (args :&vec[str]) {
          set stat_args = [] :vec[str] mut
          set stat_args = vec::push::str(stat_args "--format=%s")
          set stat_args = vec::push::str(stat_args strings::copy("bin/" + prof + "/main"))
-         set sz = use! util::trim(proc::run::output("stat" stat_args))
+         set sz = use! util::trim_command("stat" stat_args)
          set binary_size = sz
      }
     use dasu("  Binary:    " + binary_size + " bytes")

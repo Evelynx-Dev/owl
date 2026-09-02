@@ -142,11 +142,11 @@ pub fn compile_pipeline: (args :&vec[str] is_run :bool) {
                 if is_run {
                     set build_out = use! util::run_compiler(argv)
                     use dasu(build_out)
-                    if use! proc::run::last_exit() == 0 { use! util::record_build() }
+                    if use proc::run::last_exit() == 0 { use! util::record_build() }
                 } else {
                     set out = use! util::run_compiler(argv)
                     use dasu(out)
-                    if use! proc::run::last_exit() == 0 { use! util::record_build() }
+                    if use proc::run::last_exit() == 0 { use! util::record_build() }
                 }
 
                 set name = entry :str mut
@@ -198,7 +198,7 @@ pub fn cmd_debug: (args :&vec[str]) {
                     if a == "--run" || a == "-r" {
                         set extra_flags = extra_flags + " --run"
                     } else {
-                        if !use! util::startswith(a "-") && (fs::exists(a) || use! util::endswith(a ".mire")) {
+                        if !use! util::startswith(a "-") && (use! util::path_exists(a) || use! util::endswith(a ".mire")) {
                             set file_idx = i
                         } else {
                             if use! util::startswith(a "-") {

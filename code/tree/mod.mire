@@ -28,7 +28,7 @@ pub fn cmd_tree: (args :&vec[str]) {
             set name = use! util::trim(remaining)
             set remaining = ""
         } else {
-            set name = use! util::trim(strings::substr(remaining 0 sp))
+            set name = use! util::trim_substr(remaining 0 sp)
             set remaining = strings::substr(remaining sp + 1 9999)
         }
         if name == "" { continue }
@@ -58,7 +58,7 @@ pub fn cmd_tree: (args :&vec[str]) {
                             set cn = use! util::trim(cr)
                             set cr = ""
                         } else {
-                            set cn = use! util::trim(strings::substr(cr 0 sp2))
+                            set cn = use! util::trim_substr(cr 0 sp2)
                             set cr = strings::substr(cr sp2 + 1 9999)
                         }
                         if cn != "" {

@@ -22,7 +22,8 @@ pub fn cmd_gc: (args :&vec[str]) {
     }
 
     if has_libs {
-        set pkg_list = use! util::trim(proc::run::output("ls" ["-1" strings::copy(lib_dir)]))
+        set lib_arg = strings::copy(lib_dir)
+        set pkg_list = use! util::trim_command("ls" ["-1" lib_arg])
         if pkg_list != "" {
             set entries = use! util::split(pkg_list "\n")
             set ni = len(entries)
@@ -37,7 +38,8 @@ pub fn cmd_gc: (args :&vec[str]) {
                         if fs::exists(pkg_dir + "/meta.toml") || fs::exists(pkg_dir + "/owl.toml") {
                             set skipped += 1
                         } else {
-                            set ver_list = use! util::trim(proc::run::output("ls" ["-1" strings::copy(pkg_dir)]))
+                            set ver_arg = strings::copy(pkg_dir)
+                            set ver_list = use! util::trim_command("ls" ["-1" ver_arg])
                             set vertries = use! util::split(ver_list "\n")
                             set nv = len(vertries)
                             set i_ver = 0 :i64 mut
@@ -59,7 +61,8 @@ pub fn cmd_gc: (args :&vec[str]) {
                                 set i_ver += 1
                             }
 
-                            set rem_vers = use! util::trim(proc::run::output("ls" ["-1" strings::copy(pkg_dir)]))
+                            set rem_arg = strings::copy(pkg_dir)
+                            set rem_vers = use! util::trim_command("ls" ["-1" rem_arg])
                             if rem_vers == "" && do_delete {
                                 set rmdir_args = [] :vec[str] mut
                                 set rmdir_args = vec::push::str(rmdir_args strings::copy(pkg_dir))

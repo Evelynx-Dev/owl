@@ -1,5 +1,16 @@
 # Owl Changelog
 
+## [1.0.0] - 2026-09-03
+
+### Fixed
+
+- `owl install` without a package now resolves the manifest, regenerates an
+  out-of-date `owl.lock`, and processes all locked dependencies.
+- Inline dependency tables in `owl.toml` now preserve their fields during
+  diagnostics and lockfile generation.
+- Dependency diagnostics, project information, tree output, profiling, and
+  debug mode were validated against a cold build cache.
+
 ## [0.31.1] - 2026-08-24
 
 ### Fixed

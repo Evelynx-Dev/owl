@@ -3,7 +3,8 @@ module crypto
 load! /code/util
 
 pub fn crypto_tempdir: (prefix :str) :str {
-    set d = use! util::trim(proc::run::output("mktemp" ["-d" "/tmp/" + prefix + ".XXXXXX"]))
+    set temp_template = "/tmp/" + prefix + ".XXXXXX"
+    set d = use! util::trim_command("mktemp" ["-d" temp_template])
     return d
 }
 
@@ -16,7 +17,7 @@ pub fn crypto_verify_ed25519: (pubkey_b64 :str data_file :str sig_b64 :str) :boo
     if pubkey_b64 == "" || sig_b64 == "" || !fs::exists(data_file) {
         set ok = false
     } else {
-        set tmp = use! crypto::crypto_tempdir("owl-crypto")
+        set tmp = crypto::crypto_tempdir("owl-crypto")
         if tmp == "" {
             set ok = false
         } else {
@@ -61,7 +62,7 @@ pub fn crypto_verify_ed25519: (pubkey_b64 :str data_file :str sig_b64 :str) :boo
                     set vfy_args = vec::push::str(vfy_args "-sigfile")
                     set vfy_args = vec::push::str(vfy_args strings::copy(tmp + "/sig.bin"))
                     set vfy_args = vec::push::str(vfy_args "-rawin")
-                    set result = use! util::trim(proc::run::output("openssl" vfy_args))
+                    set result = use! util::trim_command("openssl" vfy_args)
                     set rm3 = [] :vec[str] mut
                     set rm3 = vec::push::str(rm3 "-rf")
                     set rm3 = vec::push::str(rm3 strings::copy(tmp))
@@ -80,9 +81,9 @@ pub fn crypto_verify_ed25519_sigfile: (pubkey_b64 :str data_file :str sig_file :
         set b64_args = [] :vec[str] mut
         set b64_args = vec::push::str(b64_args "-w0")
         set b64_args = vec::push::str(b64_args strings::copy(sig_file))
-        set sig_b64 = use! util::trim(proc::run::output("base64" b64_args))
+        set sig_b64 = use! util::trim_command("base64" b64_args)
         if sig_b64 != "" {
-            set ok = use! crypto::crypto_verify_ed25519(pubkey_b64 data_file sig_b64)
+            set ok = crypto::crypto_verify_ed25519(pubkey_b64 data_file sig_b64)
         }
     }
     return ok
@@ -106,7 +107,7 @@ pub fn crypto_verify_pemfile: (pem_file :str data_file :str sig_file :str) :bool
         set vfy_args = vec::push::str(vfy_args "-sigfile")
         set vfy_args = vec::push::str(vfy_args strings::copy(sig_file))
         set vfy_args = vec::push::str(vfy_args "-rawin")
-        set result = use! util::trim(proc::run::output("openssl" vfy_args))
+        set result = use! util::trim_command("openssl" vfy_args)
         if use! util::contains(result "Verified Successfully") { set ok = true } else { set ok = false }
     }
     return ok
