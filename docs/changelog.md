@@ -8,6 +8,10 @@
   out-of-date `owl.lock`, and processes all locked dependencies.
 - Inline dependency tables in `owl.toml` now preserve their fields during
   diagnostics and lockfile generation.
+- `owl install --lock` now refuses to operate when the manifest and lockfile
+  differ, preserving reproducible locked installs.
+- Package installation retains mandatory SHA-256 verification and refuses a
+  missing Ed25519 signature unless verification is explicitly disabled.
 - Dependency diagnostics, project information, tree output, profiling, and
   debug mode were validated against a cold build cache.
 

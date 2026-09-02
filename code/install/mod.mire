@@ -7,7 +7,13 @@ load! /code/lockfile
 pub fn cmd_install: (has_l :bool has_t :bool no_verify :bool force :bool target_val :str yes :bool name :str ver :str has_lock :bool) :u8 {
     set ec = 0 :u8 mut
     if has_lock {
-        use! lockfile::lockfile_install_all()
+        if use! lockfile::lockfile_in_sync() {
+            use! lockfile::lockfile_install_all()
+        } else {
+            use dasu("  owl.lock does not match owl.toml")
+            use dasu("  run 'owl install' to resolve dependencies, then retry with --lock")
+            set ec = 1 :u8
+        }
         return ec
     }
     if has_l {
@@ -15,19 +21,15 @@ pub fn cmd_install: (has_l :bool has_t :bool no_verify :bool force :bool target_
     } else {
         set is_empty = len(name) == 0
         if is_empty {
-            if has_lock {
-                use! lockfile::lockfile_install_all()
-            } else {
-                if has_t { use dasu("Usage: owl install -t <name>") } else {
-                    use dasu("  resolving dependencies from owl.toml ...")
-                    set regenerated = use! lockfile::generate_lockfile()
-                    if regenerated {
-                        use dasu("  owl.lock updated")
-                        use! lockfile::lockfile_install_all()
-                    } else {
-                        use dasu("  error: could not generate owl.lock")
-                        set ec = 1 :u8
-                    }
+            if has_t { use dasu("Usage: owl install -t <name>") } else {
+                use dasu("  resolving dependencies from owl.toml ...")
+                set regenerated = use! lockfile::generate_lockfile()
+                if regenerated {
+                    use dasu("  owl.lock updated")
+                    use! lockfile::lockfile_install_all()
+                } else {
+                    use dasu("  error: could not generate owl.lock")
+                    set ec = 1 :u8
                 }
             }
         } else {
@@ -90,7 +92,6 @@ pub fn cmd_list_packages: () {
 
 pub fn cmd_install_pkg: (name :str version :str no_verify :bool force :bool) :u8 {
     set ec = 0 :u8 mut
-    set no_verify = false
     set resolved = use! semver::resolve_from_registry(name version)
     set pkg_ver = version :str mut
     if resolved != "" { set pkg_ver = resolved }
@@ -359,6 +360,15 @@ pub fn cmd_install_pkg: (name :str version :str no_verify :bool force :bool) :u8
             set rm7 = vec::push::str(rm7 "-f")
             set rm7 = vec::push::str(rm7 strings::copy(sig_file))
             use proc::run::output("rm" rm7)
+        } else {
+            if !no_verify {
+                set rm8 = [] :vec[str] mut
+                set rm8 = vec::push::str(rm8 "-f")
+                set rm8 = vec::push::str(rm8 strings::copy(tarball_file))
+                use proc::run::output("rm" rm8)
+                use dasu("  error: package signature missing - refusing unverified package")
+                set ec = 1 :u8
+            }
         }
     }
 

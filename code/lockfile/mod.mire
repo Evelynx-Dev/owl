@@ -219,13 +219,17 @@ pub fn generate_lockfile: () :bool {
                 set pos = end + 1
                 if dep_name != "" {
                     set dname = dep_name :str mut
-                    set version = use! deps::get_dep_field(dname "version")
+                    set version = use! deps::get_dep_field(dname "version") :str mut
                     set dname2 = dep_name :str mut
                     set path = use! deps::get_dep_field(dname2 "path")
                     set dname3 = dep_name :str mut
                     set abi = use! deps::get_dep_field(dname3 "abi")
                     set dname4 = dep_name :str mut
                     set registry = use! deps::get_dep_field(dname4 "registry") :str mut
+                    if path == "" && version != "" {
+                        set resolved_version = use! semver::resolve_from_registry(dep_name version)
+                        if resolved_version != "" { set version = resolved_version }
+                    }
                     if registry == "" && path == "" {
                         set reg_dir = use! util::owl_home_registries()
                         set reg_arg = strings::copy(reg_dir)
@@ -305,13 +309,12 @@ pub fn ensure_lockfile: () :bool {
         if use! lockfile::lockfile_in_sync() {
             set ok = true
         } else {
-            use dasu("  owl.lock is out of sync with owl.toml - updating it now")
-            set ok = use! lockfile::generate_lockfile()
-            if !ok { use dasu("  error: could not update owl.lock") }
+            use dasu("  owl.lock is out of sync with owl.toml")
+            use dasu("  run 'owl install' to resolve dependencies and update it")
         }
     } else {
-        use dasu("  owl.lock not found - generating from owl.toml ...")
-        set ok = use! lockfile::generate_lockfile()
+        use dasu("  owl.lock not found")
+        use dasu("  run 'owl install' to resolve dependencies and create it")
     }
     return ok
 }

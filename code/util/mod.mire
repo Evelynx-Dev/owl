@@ -35,11 +35,6 @@ pub fn trim_substr: (s :&str start :i64 length :i64) :str {
     return strings::trim(part)
 }
 
-pub fn trim_substr: (s :&str start :i64 length :i64) :str {
-    set part = strings::substr(s start length)
-    return strings::trim(part)
-}
-
 pub fn substr_i64: (s :&str start :i64 length :i64) :i64 {
     set part = strings::substr(s start length)
     return use! util::string_to_i64(part)
