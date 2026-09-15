@@ -3,8 +3,82 @@ module build
 load! /code/util
 load! /code/lockfile
 load! /code/deps
+load! /code/install
+load! /code/args
 
-pub fn compile_pipeline: (args :&vec[str] is_run :bool) {
+extern fn exit: (code :i64) lib "c"
+
+/! Validate the project environment before compilation. A missing or stale
+   lockfile is a dependency-management state, not a compiler error: Owl asks
+   once whether it may resolve/install through its normal installer. !/
+fn ensure_project_dependencies: () :bool {
+    if use! lockfile::exists() && use! lockfile::in_sync() {
+        return true
+    }
+
+    if use! lockfile::exists() {
+        use dasu("  owl.lock is out of sync with owl.toml")
+    } else {
+        use dasu("  owl.lock was not found")
+    }
+    use dasu("  resolve and install dependencies now? (Y/n)")
+    set answer = use! util::read_line_trim()
+    if answer == "n" || answer == "N" {
+        use dasu("  cancelled; run 'owl install' when ready")
+        return false
+    }
+
+    set install_status = use! install::run(false false false false "" true "" "" false) :u8
+    if install_status != 0 {
+        use dasu("  dependency resolution failed; compilation was not started")
+        return false
+    }
+    return use! lockfile::exists() && use! lockfile::in_sync()
+}
+
+/! Generate the explicit compiler configuration used by `owl test`. Tests
+   must receive the same dependency roots and runtime policy as builds; relying
+   on Avenys to rediscover owl.toml would quietly reintroduce the old project
+   manager boundary. !/
+pub fn test_config: (args :&vec[str]) :str {
+    if !use! build::ensure_project_dependencies() {
+        use! util::error_line("OWL0003" "dependencies are unresolved")
+        exit(1)
+    }
+
+    set profile = use! util::config_required("build" "profile") :str mut
+    set opt = use! util::config_required("build" "opt-level") :str mut
+    if use! args::flag::has(args "--release") || use! args::flag::has(args "-r") {
+        set profile = "release"
+        set opt = "3"
+    }
+    if use! args::flag::has(args "--debug") || use! args::flag::has(args "-d") {
+        set profile = "debug"
+        set opt = "0"
+    }
+    set requested_opt = use! util::arg_value(args "--opt-level")
+    if requested_opt != "" { set opt = requested_opt }
+
+    set entry = use! util::config_required("project" "entry")
+    set artifact = use! util::arg_value(args "--artifact") :str mut
+    if artifact == "" { set artifact = "bin" }
+    set runtime = use! util::arg_value(args "--runtime") :str mut
+    if runtime == "" { set runtime = "minimal" }
+    set target = use! util::arg_value(args "--target") :str mut
+    if target == "" { set target = "x86_64-unknown-linux-gnu" }
+    set output = use! util::config_required("paths" "output")
+    set cache = use! util::config_required("paths" "cache")
+    set config = cache + "/mire-test-config.toml"
+    use! util::mkdir_p(strings::copy(cache))
+    set compiler_output = output + "/" + profile
+    if !use! util::write_mire_config(strings::copy(config) strings::copy(entry) strings::copy(profile) strings::copy(opt) strings::copy(artifact) strings::copy(runtime) strings::copy(target) strings::copy(compiler_output) strings::copy(cache) use! deps::compiler_lib_dirs()) {
+        use! util::error_line("OWL0005" "could not write normalized Mire test configuration")
+        exit(1)
+    }
+    return config
+}
+
+pub fn compile: (args :&vec[str] is_run :bool) {
     set is_proj = use! util::has_project()
 
     set n = rt_vec_len(args)
@@ -71,6 +145,7 @@ pub fn compile_pipeline: (args :&vec[str] is_run :bool) {
         }
         if cli_file == "" {
             use! util::error_line("OWL0002" "no file specified and no owl.toml found")
+            exit(1)
         } else {
             set argv = [] :vec[str] mut
             if is_run { set argv = vec::push::str(argv "run") } else { set argv = vec::push::str(argv "build") }
@@ -81,7 +156,7 @@ pub fn compile_pipeline: (args :&vec[str] is_run :bool) {
                 set argv = vec::push::str(argv cli_opt)
             }
             set argv = vec::push::str(argv "--lib-dir")
-            set argv = vec::push::str(argv use! util::owl_home_libs_display())
+            set argv = vec::push::str(argv use! deps::compiler_lib_dirs())
             if extra_flags != "" {
                 set toks = strings::split(extra_flags " ")
                 set ti = 0 :i64 mut
@@ -95,8 +170,9 @@ pub fn compile_pipeline: (args :&vec[str] is_run :bool) {
             use dasu(out)
         }
     } else {
-        if !use! lockfile::ensure_lockfile() {
-            use! util::error_line("OWL0003" "lockfile missing - run owl install first")
+        if !use! build::ensure_project_dependencies() {
+            use! util::error_line("OWL0003" "dependencies are unresolved")
+            exit(1)
         } else {
             set entry = use! util::config_required("project" "entry")
             set file = entry :str mut
@@ -110,24 +186,40 @@ pub fn compile_pipeline: (args :&vec[str] is_run :bool) {
             set out_dir = use! util::config_required("paths" "output") :str mut
             set cache_dir = use! util::config_required("paths" "cache") :str mut
 
+            set artifact = use! util::arg_value(args "--artifact") :str mut
+            if artifact == "" { set artifact = "bin" }
+            set runtime = use! util::arg_value(args "--runtime") :str mut
+            if runtime == "" { set runtime = "minimal" }
+            set target = use! util::arg_value(args "--target") :str mut
+            if target == "" { set target = "x86_64-unknown-linux-gnu" }
+
             if !fs::exists(file) {
                 use! util::error_line("OWL0002" "input not found: " + file)
+                exit(1)
             } else {
                 set cache = cache_dir
                 set output = out_dir
-                use! util::mkdir_p(cache)
-                use! util::mkdir_p(output)
+                use! util::mkdir_p(strings::copy(cache))
+                use! util::mkdir_p(strings::copy(output))
 
                 set out_dir2 = use! util::config_required("paths" "output")
+                set compiler_output = output + "/" + profile
+                set mire_config = cache + "/mire-config.toml"
+                if !use! util::write_mire_config(strings::copy(mire_config) strings::copy(file) strings::copy(profile) strings::copy(opt) strings::copy(artifact) strings::copy(runtime) strings::copy(target) strings::copy(compiler_output) strings::copy(cache) use! deps::compiler_lib_dirs()) {
+                    use! util::error_line("OWL0005" "could not write normalized Mire configuration")
+                    exit(1)
+                }
 
                 set argv = [] :vec[str] mut
                 set argv = vec::push::str(argv "build")
                 set argv = vec::push::str(argv strings::copy(file))
+                set argv = vec::push::str(argv "--config")
+                set argv = vec::push::str(argv strings::copy(mire_config))
                 if profile == "release" { set argv = vec::push::str(argv "--release") } else { set argv = vec::push::str(argv "--debug") }
                 set argv = vec::push::str(argv "-O")
                 set argv = vec::push::str(argv strings::copy(opt))
                 set argv = vec::push::str(argv "--lib-dir")
-                set argv = vec::push::str(argv use! util::owl_home_libs_display())
+                set argv = vec::push::str(argv use! deps::compiler_lib_dirs())
                 if extra_flags != "" {
                     set toks = strings::split(extra_flags " ")
                     set ti = 0 :i64 mut
@@ -167,7 +259,7 @@ pub fn compile_pipeline: (args :&vec[str] is_run :bool) {
     }
 }
 
-pub fn cmd_debug: (args :&vec[str]) {
+pub fn debug: (args :&vec[str]) {
     set is_proj = use! util::has_project()
     set n = rt_vec_len(args)
 
@@ -218,13 +310,14 @@ pub fn cmd_debug: (args :&vec[str]) {
     if !is_proj {
         if cli_file == "" {
             use! util::error_line("OWL0002" "no file specified and no owl.toml found")
+            exit(1)
             return
         }
         set argv = [] :vec[str] mut
         set argv = vec::push::str(argv "debug")
         set argv = vec::push::str(argv strings::copy(cli_file))
         set argv = vec::push::str(argv "--lib-dir")
-        set argv = vec::push::str(argv use! util::owl_home_libs_display())
+        set argv = vec::push::str(argv use! deps::compiler_lib_dirs())
         if extra_flags != "" {
             set toks = strings::split(extra_flags " ")
             set ti = 0 :i64 mut
@@ -239,8 +332,9 @@ pub fn cmd_debug: (args :&vec[str]) {
         return
     }
 
-    if !use! lockfile::ensure_lockfile() {
-        use! util::error_line("OWL0003" "lockfile missing - run owl install first")
+    if !use! build::ensure_project_dependencies() {
+        use! util::error_line("OWL0003" "dependencies are unresolved")
+        exit(1)
         return
     }
     set entry = use! util::config_required("project" "entry")
@@ -248,13 +342,14 @@ pub fn cmd_debug: (args :&vec[str]) {
     if cli_file != "" && fs::exists(cli_file) { set file = cli_file }
     if !fs::exists(file) {
         use! util::error_line("OWL0002" "input not found: " + file)
+        exit(1)
         return
     }
     set argv = [] :vec[str] mut
     set argv = vec::push::str(argv "debug")
     set argv = vec::push::str(argv strings::copy(file))
     set argv = vec::push::str(argv "--lib-dir")
-    set argv = vec::push::str(argv use! util::owl_home_libs_display())
+    set argv = vec::push::str(argv use! deps::compiler_lib_dirs())
     if extra_flags != "" {
         set toks = strings::split(extra_flags " ")
         set ti = 0 :i64 mut
@@ -268,7 +363,7 @@ pub fn cmd_debug: (args :&vec[str]) {
     use dasu(out)
 }
 
-pub fn cmd_new: (name :str) {
+pub fn new: (name :str) {
     if fs::exists(name) {
         use dasu("Error: directory already exists")
     } else {

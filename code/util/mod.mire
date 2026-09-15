@@ -107,17 +107,89 @@ pub fn toml_get_from_string: (content :str section :str key :str) :str {
 
 /! Filesystem operations !/
 pub fn mkdir_p: (path :str) {
-    set args = [] :vec[str] mut
-    set args = vec::push::str(args "-p")
-    set args = vec::push::str(args strings::copy(path))
-    use proc::run::output("mkdir" args)
+    if path == "" || path == "." { return }
+    set absolute = use! util::startswith(path "/")
+    set parts = strings::split(path "/")
+    set current = "" :str mut
+    if absolute { set current = "/" }
+    set i = 0 :i64 mut
+    while i < len(parts) {
+        set part = use! util::list_get(parts i)
+        if part != "" && part != "." {
+            if current == "" || current == "/" {
+                set current = current + part
+            } else {
+                set current = current + "/" + part
+            }
+            if !fs::exists(current) {
+                fs::dir::create(current)
+            }
+        }
+        set i += 1
+    }
 }
 
-pub fn rm_RF: (path :str) {
-    set args = [] :vec[str] mut
-    set args = vec::push::str(args "-rf")
-    set args = vec::push::str(args strings::copy(path))
-    use proc::run::output("rm" args)
+/! Per-package resolver records. These are deliberately plain text so they
+    remain inspectable, but contain only trust metadata (never private keys). !/
+pub fn cfg: () {
+pub fn home: () :str {
+    return use! util::owl_home() + "/cfg"
+}
+pub fn package: (name :str) :str {
+    return use! util::cfg::home() + "/" + name
+}
+pub fn write: (name :str version :str path :str sha :str registry :str verified :bool) {
+    set dir = use! util::cfg::home()
+    use! util::mkdir_p(dir)
+    set status = "false" :str mut
+    if verified { set status = "true" }
+    set record = "name = \"" + name + "\"\n" :str mut
+    set record = record + "version = \"" + version + "\"\n"
+    set record = record + "path = \"" + path + "\"\n"
+    set record = record + "sha256 = \"" + sha + "\"\n"
+    set record = record + "registry = \"" + registry + "\"\n"
+    set record = record + "verified = " + status + "\n"
+    use fs::write(use! util::cfg::package(name) record)
+}
+}
+
+pub fn rm_RF: (path :&str) {
+    if fs::exists(path) { fs::remove_all(path) }
+}
+
+// Returns directory entries in the same newline-separated shape used by the
+// old `ls -1` callers. The data comes directly from Kioto's PAL directory
+// API, so filenames are not parsed through a child process.
+pub fn list_text: (path :&str) :str {
+    set entries = fs::list(path)
+    return strings::join(entries "\n")
+}
+
+// Reads file metadata through Kioto/PAL. This replaces `stat` and keeps size
+// checks available on systems where command-line utilities are absent.
+pub fn file_size: (path :&str) :i64 {
+    if !fs::exists(path) { return 0 }
+    set root = fs::root::open(".")
+    set file = fs::file::open::read(root path)
+    set size = fs::file::size(file)
+    return size
+}
+
+// Computes a directory's total byte size recursively using only PAL file and
+// directory operations. The result is intentionally integer bytes; callers
+// can format it without depending on `du` or locale-specific output.
+pub fn tree_size: (path :&str) :i64 {
+    if fs::is_file(path) { return use! util::file_size(path) }
+    if !fs::exists(path) { return 0 }
+    set total = 0 :i64 mut
+    set entries = fs::list(path)
+    set i = 0 :i64 mut
+    while i < len(entries) {
+        set child = fs::path::join(path use! util::list_get(entries i))
+        set total += use! util::tree_size(child)
+        set i += 1
+    }
+    return total
 }
 
 pub fn fs_make_readonly: (path :str) {
@@ -195,7 +267,22 @@ pub fn owl_home: () :str {
 }
 
 pub fn owl_home_registries: () :str {
-    return use! util::owl_home() + "/registries"
+    return use! util::owl_home() + "/reg"
+}
+
+/! Owl's persistent configuration and version store are separate from the
+   package cache. `libs/` remains the active rolling view; versioned copies
+   are retained only while a lockfile still needs them. !/
+pub fn owl_home_cfg: () :str {
+    return use! util::owl_home() + "/cfg"
+}
+
+pub fn owl_home_versions: () :str {
+    return use! util::owl_home() + "/version"
+}
+
+pub fn owl_home_libs_index: () :str {
+    return use! util::owl_home_cfg() + "/libs.json"
 }
 
 pub fn owl_home_lib: () :str {
@@ -227,7 +314,7 @@ pub fn owl_home_cache_tarballs: () :str {
 }
 
 pub fn owl_home_cache_resolution: () :str {
-    return use! util::owl_home() + "/cache/resolution.toml"
+    return use! util::owl_home() + "/cache/registry/resolution.toml"
 }
 
 pub fn owl_home_keys: () :str {
@@ -241,7 +328,7 @@ pub fn owl_version: () :str {
 
 pub fn compiler_version: () :str {
     set ver = "" :str mut
-    set v = use! util::trim_command("mire" ["--version"])
+    set v = use! util::trim_command(use! util::compiler_cmd() ["--version"])
     if v != "" {
         set ver = v
     } else {
@@ -279,23 +366,38 @@ pub fn compiler_cmd: () :str {
     set cmd = "" :str mut
     if use! util::has_project() {
         set c = use! util::toml_get("owl.toml" "build" "compiler")
-        if c != "" { set cmd = c }
+        /! `mire` is the canonical portable spelling, but leaving it as a
+           bare argv[0] would make Owl depend on the caller's PATH. Resolve
+           it through the controlled installation locations below. !/
+        if c != "" && c != "mire" { set cmd = c }
     }
     if cmd == "" {
-        /! No explicit compiler: resolve a known-good absolute path
-           instead of relying on a bare `mire` found through PATH.
-           A fake `mire` earlier in PATH would otherwise be executed
-           on every build. Prefer the real install locations. !/
+        /! CI may provide an explicit compiler location without modifying a
+           project manifest. This is read-only environment configuration, not
+           shell evaluation; the resulting path is passed as argv[0]. !/
         set home = env::var("HOME")
-        set c1 = strings::concat(home "/.cargo/bin/mire")
-        set c2 = strings::concat(home "/.local/bin/mire")
-        if fs::exists(c1) {
-            set cmd = c1
+        set configured = env::var("MIRE_COMPILER")
+        if configured != "" && fs::exists(configured) {
+            set cmd = strings::copy(configured)
         } else {
-            if fs::exists(c2) {
-                set cmd = c2
+            set mire_home = strings::copy(env::var("MIRE_HOME"))
+            if mire_home != "" && fs::exists(mire_home + "/bin/mire") {
+                set cmd = mire_home + "/bin/mire"
             } else {
-                set cmd = "mire"
+                set c1 = strings::concat(home "/.cargo/bin/mire")
+                set c2 = strings::concat(home "/.local/bin/mire")
+                if fs::exists(c1) {
+                    set cmd = c1
+                } else {
+                    if fs::exists(c2) {
+                        set cmd = c2
+                    } else {
+                        /! Portable CI fallback. proc::run::output performs a
+                           direct executable lookup through PATH; no shell is
+                           created and no command string is interpreted. !/
+                        set cmd = "mire"
+                    }
+                }
             }
         }
     } else {
@@ -340,6 +442,71 @@ pub fn config_required: (section :str key :str) :str {
     return val
 }
 
+// Returns the value following a CLI flag. Owl uses this small parser for
+// compiler-facing options that must be represented in the normalized Mire
+// configuration instead of being appended ambiguously to a command string.
+pub fn arg_value: (args :&vec[str], flag :&str) :str {
+    set n = rt_vec_len(args)
+    set result = "" :str mut
+    set i = 0 :i64 mut
+    while i < n {
+        set item = rt_vec_get_str(args i)
+        if item == flag && i + 1 < n {
+            set result = rt_vec_get_str(args i + 1)
+        }
+        set i += 1
+    }
+    return result
+}
+
+// Writes the closed configuration contract consumed by Avenys 4.0.0. The
+// file is generated inside Owl's cache and overwritten on every build, so the
+// compiler never needs to rediscover owl.toml or the dependency graph.
+pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :str runtime :str target :str output :str cache :str libs :str) :bool {
+    use! util::mkdir_p(strings::copy(fs::path::dir(path)))
+    set config = "[project]\n" :str mut
+    set config = config + "name = \"owl-managed\"\n"
+    set config = config + "version = \"1.0.0\"\n"
+    set config = config + "entry = \"" + entry + "\"\n\n"
+    set config = config + "[build]\n"
+    set config = config + "compiler = \"mire\"\n"
+    set config = config + "profile = \"" + profile + "\"\n"
+    set config = config + "opt-level = " + opt + "\n"
+    set config = config + "artifact = \"" + artifact + "\"\n"
+    set config = config + "runtime = \"" + runtime + "\"\n"
+    set config = config + "target = \"" + target + "\"\n"
+    set config = config + "panic = \"abort\"\n"
+    set config = config + "incremental = true\n"
+    set config = config + "debug-info = true\n\n"
+    set config = config + "[paths]\n"
+    set config = config + "source = \".\"\n"
+    set config = config + "test = \"tests\"\n"
+    set config = config + "bin = \"" + output + "\"\n"
+    set config = config + "cache = \"" + cache + "\"\n"
+    set config = config + "generated = \"" + cache + "/generated\"\n\n"
+    set config = config + "[cfg]\n"
+    // Package roots belong to Avenys' --lib-dir search path, not to native
+    // linker `-l` entries. Owl's own archive bridge is the one exception: it
+    // is a deliberate development-time C bridge to libarchive, not a Mire
+    // runtime dependency.
+    if fs::exists("native/archive.c") {
+        set config = config + "libs = [\"archive\"]\n"
+        set config = config + "sources = [\"native/archive.c\"]\n"
+    } else {
+        set config = config + "libs = []\n"
+        set config = config + "sources = []\n"
+    }
+    set config = config + "link-dirs = []\nfeatures = []\ndefines = []\ncflags = []\n\n"
+    set config = config + "[security]\n"
+    set config = config + "mode = \"strict\"\n"
+    set config = config + "externs = [\"rt_*\", \"pal_*\", \"exit\"]\n"
+    set config = config + "extern-libs = [\"c\"]\n"
+    set config = config + "macros = [\"assert\", \"assert_eq\", \"assert_ne\", \"dbg\", \"trace_i64\"]\n"
+    set config = config + "allow-unsafe = false\n"
+    fs::write(path config)
+    return fs::exists(path)
+}
+
 /! Kioto wrappers !/
 extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
 extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
@@ -361,59 +528,95 @@ pub fn list_get: (list :&vec[str], index :i64) :str { return vec::get::str(list 
    Returns "" on any failure.
 !/
 pub fn sha256sum_hex: (path :&str) :str {
-    set args = [] :vec[str] mut
-    set args = vec::push::str(args strings::copy(path))
-    set raw = proc::run::output("sha256sum" args)
-    set parts = strings::split(raw " ")
-    set first = use! util::trim(use! util::list_get(parts 0))
-    if len(first) == 64 { return first }
-    return ""
+    if !fs::exists(path) { return "" }
+    set content = fs::read(path)
+    return use! crypto::hash::sha256(content)
+}
+
+/! Computes SHA-512 locally for registry verification. The registry may
+   publish either SHA-256 or SHA-512; Owl computes the declared algorithm
+   itself and never trusts a hash copied from publish.toml. !/
+pub fn sha512sum_hex: (path :&str) :str {
+    if !fs::exists(path) { return "" }
+    set content = fs::read(path)
+    return use! crypto::hash::sha512(content)
 }
 
 /! Returns true if any .mire under code/ or tests/ contains a
    `load <dep>` statement. Used by `owl deps --prune`.
 !/
+fn contains_load_tree: (path :&str pattern :&str) :bool {
+    if fs::is_file(path) {
+        set source = fs::read(path)
+        return strings::contains(source pattern)
+    }
+    if !fs::exists(path) { return false }
+    set entries = fs::list(path)
+    set i = 0 :i64 mut
+    while i < len(entries) {
+        set entry_check = use! util::list_get(entries i)
+        if entry_check != "." && entry_check != ".." {
+            if contains_load_tree(fs::path::join(path use! util::list_get(entries i)) pattern) { return true }
+        }
+        set i += 1
+    }
+    return false
+}
+
 pub fn grep_load: (dep :str) :bool {
-    set pattern = "load " + dep :str
-    set args = [] :vec[str] mut
-    set args = vec::push::str(args "-rl")
-    set args = vec::push::str(args strings::copy(pattern))
-    set args = vec::push::str(args "code")
-    set args = vec::push::str(args "tests")
-    set out = proc::run::output("grep" args)
-    return use! util::trim(out) != ""
+    set pattern = "load " + dep
+    if contains_load_tree("code" pattern) { return true }
+    return contains_load_tree("tests" pattern)
 }
 
 /! Scans code/ and tests/ for external `load <name>` statements (not `load!`)
    and returns a newline-separated list of unique package names found.
    Full package names including :: segments are returned.
 !/
-pub fn scan_load_packages: () :str {
-    set grep_args = [] :vec[str] mut
-    set grep_args = vec::push::str(grep_args "-roh")
-    set grep_args = vec::push::str(grep_args "^load [a-zA-Z][a-zA-Z0-9_:]*")
-    set grep_args = vec::push::str(grep_args "code")
-    set grep_args = vec::push::str(grep_args "tests")
-    set raw = proc::run::output("grep" grep_args)
-    set lines = use! util::split(raw "\n")
+fn scan_source_loads: (source :&str, result :str) :str {
+    set lines = use! util::split(source "\n")
     set n = len(lines)
-    set result = "" :str mut
+    set output = result :str mut
     set i = 0 :i64 mut
     while i < n {
         set line = use! util::trim(use! util::list_get(lines i))
-        if use! util::startswith(line "load ") {
+        if use! util::startswith(line "load ") && !use! util::startswith(line "load!") {
             set pkg = strings::substr(line 5 9999) :str mut
             if pkg != "" {
                 set space = strings::index(pkg " ")
                 if space >= 0 { set pkg = strings::substr(pkg 0 space) }
-                if pkg != "" && !use! util::contains(result pkg + "\n") && !use! util::startswith(result pkg + "\n") && result != pkg {
-                    if result == "" { set result = pkg } else { set result = result + "\n" + pkg }
+                if pkg != "" && !use! util::contains(output pkg + "\n") && !use! util::startswith(output pkg + "\n") && output != pkg {
+                    if output == "" { set output = pkg } else { set output = output + "\n" + pkg }
                 }
             }
         }
         set i += 1
     }
-    return result
+    return output
+}
+
+fn scan_load_tree: (path :&str, result :str) :str {
+    set output = result :str mut
+    if fs::is_file(path) {
+        return scan_source_loads(fs::read(path) strings::copy(output))
+    }
+    if !fs::exists(path) { return output }
+    set entries = fs::list(path)
+    set i = 0 :i64 mut
+    while i < len(entries) {
+        set entry = use! util::list_get(entries i)
+        if entry != "." && entry != ".." {
+            set child = fs::path::join(path entry)
+            set output = scan_load_tree(child output)
+        }
+        set i += 1
+    }
+    return output
+}
+
+pub fn scan_load_packages: () :str {
+    set result = scan_load_tree("code" "")
+    return scan_load_tree("tests" result)
 }
 
 pub fn string_to_i64: (s :str) :i64 { return rt_string_to_i64(s) }
