@@ -3,7 +3,10 @@ module export
 load! /code/util
 load! /code/args
 
-pub fn cmd_export: (args :&vec[str]) {
+extern fn owl_archive_available: () :i32 lib "c"
+extern fn owl_archive_pack: (root :&str output :&str) :i32 lib "c"
+
+pub fn run: (args :&vec[str]) {
     set proceed = true :bool mut
     if !use! util::has_project() {
         use dasu("error: no owl.toml found")
@@ -23,8 +26,8 @@ pub fn cmd_export: (args :&vec[str]) {
             set sources = use! util::toml_get("owl.toml" "paths" "sources") :str mut
             if sources == "" { set sources = "code" }
 
-            set check_only = use! args::has_flag(args "--check")
-            set dry_run = use! args::has_flag(args "--dry-run")
+            set check_only = use! args::flag::has(args "--check")
+            set dry_run = use! args::flag::has(args "--dry-run")
 
             if check_only {
                 use dasu("  checking " + name + " v" + ver + "...")
@@ -33,13 +36,13 @@ pub fn cmd_export: (args :&vec[str]) {
                     set proceed = false
                 }
                  if proceed {
-                     set t = use! util::trim_command("which" ["tar"])
-                     set z = use! util::trim_command("which" ["zstd"])
-                     set o = use! util::trim_command("which" ["openssl"])
-                     if t == "" { use dasu("  warning: tar not found") }
-                     if z == "" { use dasu("  warning: zstd not found") }
-                     if o == "" { use dasu("  warning: openssl not found (signing unavailable)") }
-                     use dasu("  check passed")
+                     if owl_archive_available() == 0 {
+                         use dasu("  error: libarchive/zstd support unavailable")
+                         set proceed = false
+                     } else {
+                         use dasu("  archive backend: libarchive + zstd")
+                         use dasu("  check passed")
+                     }
                  }
             } else {
                 set archive = name + "-" + ver + ".tar.zst"
@@ -49,32 +52,15 @@ pub fn cmd_export: (args :&vec[str]) {
                 use dasu("  exporting " + name + " v" + ver + "...")
 
                  set a2 = archive :str
-                 set tar_args = [] :vec[str] mut
-                 set tar_args = vec::push::str(tar_args "--zstd")
-                 set tar_args = vec::push::str(tar_args "-cf")
-                 set tar_args = vec::push::str(tar_args strings::copy(archive))
-                 set tar_args = vec::push::str(tar_args strings::copy(sources))
-                 use proc::run::output("tar" tar_args)
-                 set tar_ok = use proc::run::last_exit() == 0 :bool mut
-
-                 if !tar_ok {
-                     set tar_args2 = [] :vec[str] mut
-                     set tar_args2 = vec::push::str(tar_args2 "-I")
-                     set tar_args2 = vec::push::str(tar_args2 "zstd")
-                     set tar_args2 = vec::push::str(tar_args2 "-cf")
-                     set tar_args2 = vec::push::str(tar_args2 strings::copy(archive))
-                     set tar_args2 = vec::push::str(tar_args2 strings::copy(sources))
-                     use proc::run::output("tar" tar_args2)
-                     set tar_ok = use proc::run::last_exit() == 0
-                 }
+                 set tar_ok = owl_archive_pack(sources archive) == 0 :bool
 
                 if !tar_ok {
-                    use dasu("  error: failed to create archive (tar + zstd required)")
+                    use dasu("  error: failed to create archive (libarchive + zstd)")
                     set proceed = false
                 }
 
                 if proceed {
-                    set hash = crypto::crypto_sha256(a2)
+                    set hash = use! crypto::sha256(a2)
                     if hash == "" {
                         use dasu("  error: failed to checksum " + archive)
                         set proceed = false
@@ -109,27 +95,31 @@ pub fn cmd_export: (args :&vec[str]) {
                          }
 
                          if proceed {
-                             set b64_args = [] :vec[str] mut
-                             set b64_args = vec::push::str(b64_args "-w0")
-                             set b64_args = vec::push::str(b64_args strings::copy(pub_key))
-                             set pubkey_b64 = use! util::trim_command("base64" b64_args)
-                             set sign_args = [] :vec[str] mut
-                             set sign_args = vec::push::str(sign_args "pkeyutl")
-                             set sign_args = vec::push::str(sign_args "-sign")
-                             set sign_args = vec::push::str(sign_args "-inkey")
-                             set sign_args = vec::push::str(sign_args strings::copy(priv_key))
-                             set sign_args = vec::push::str(sign_args "-in")
-                             set sign_args = vec::push::str(sign_args strings::copy(archive))
-                             set sign_args = vec::push::str(sign_args "-rawin")
-                             set sig_b64 = use! util::trim_command("openssl" sign_args)
-
-                             if sig_b64 == "" {
-                                 use dasu("  error: failed to sign " + archive)
-                                 set proceed = false
+set b64_args = [] :vec[str] mut
+    set b64_args = vec::push::str(b64_args strings::copy(pub_key))
+    set pubkey_b64 = use! kioto::crypto::encode::base64::encode(vec::from_str(pub_key))
+                             set sig_tmp = use! crypto::tempdir("owl-sig")
+                             if sig_tmp != "" {
+                                 set sig_in = sig_tmp + "/sig.b64"
+                                 use fs::write(sig_in pubkey_b64)
+                                 set bd_args = [] :vec[str] mut
+                                 set bd_args = vec::push::str(bd_args "-d")
+                                 set bd_args = vec::push::str(bd_args "-i")
+                                 set bd_args = vec::push::str(bd_args strings::copy(sig_in))
+                                 set bd_args = vec::push::str(bd_args strings::copy(sig_file))
+                                 use proc::run::output("base64" bd_args)
+                                 set rm_sig = [] :vec[str] mut
+                                 set rm_sig = vec::push::str(rm_sig "-rf")
+                                 set rm_sig = vec::push::str(rm_sig strings::copy(sig_tmp))
+                                 use proc::run::output("rm" rm_sig)
+                                 set cp_args = [] :vec[str] mut
+                                 set cp_args = vec::push::str(cp_args strings::copy(pub_key))
+                                 set cp_args = vec::push::str(cp_args strings::copy(pub_file))
+                                 use proc::run::output("cp" cp_args)
                              }
 
                              if proceed {
-                                 set sig_tmp = crypto::crypto_tempdir("owl-sig")
+                                 set sig_tmp = use! crypto::tempdir("owl-sig")
                                  if sig_tmp != "" {
                                      set sig_in = sig_tmp + "/sig.b64"
                                      use fs::write(sig_in sig_b64)

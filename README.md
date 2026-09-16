@@ -16,6 +16,31 @@ cd myproject
 owl run
 ```
 
+## Installation and CI
+
+The reproducible source installer builds Avenys first and then compiles Owl
+with that exact compiler. At runtime Owl invokes the compiler with argv-safe
+process execution; it does not use a shell to build projects.
+
+```bash
+./scripts/install.sh --check
+./scripts/install.sh --yes --prefix "$HOME/.local"
+```
+
+The installer supports apt, dnf, pacman, apk and zypper. It provisions Rust /
+Cargo, Clang, LLVM 22/LLD, pkg-config, libarchive, OpenSSL, libsodium, zlib and zstd. On an
+older distribution whose glibc cannot run a prebuilt binary, use this source
+installer rather than replacing system libraries.
+
+Owl packages are created and extracted through `libarchive` linked with zstd;
+the runtime does not require the `tar` or `zstd` executables. The corresponding
+development package (`libarchive-dev`, `libarchive-devel`, or the distribution
+equivalent) is checked by the installer.
+
+Avenys 4.0.0 currently requires LLVM 22. The installer rejects older
+`llvm-config` versions so a CI image fails with an actionable toolchain error
+instead of a later `llvm-sys` linker failure.
+
 ## Commands
 
 ### Build
@@ -36,7 +61,6 @@ owl run
 | `-N` | `new <Name>` | Scaffold a new project |
 | `-C` | `clean [--bin] [--cache] [--all\|-A] [--global]` | Remove build artifacts and cache |
 | | `checkup [--fix <field>...]` | Project diagnostics and repair |
-| | `tree [--all]` | Show dependency tree |
 | | `profile [--json]` | Build metrics |
 
 ### Packages
@@ -44,10 +68,10 @@ owl run
 | Short | Command | Description |
 |-------|---------|-------------|
 | `-L` | `load <name>` | Add dependency to owl.toml |
-| `-L` | `load -Lu <url>` | Add a package registry |
-| `-L` | `load -Ll` | List registries |
-| `-L` | `load -Ls` | Sync registries |
-| `-L` | `load -Lr <name>` | Remove registry |
+| `-G` | `reg add <url>` | Add a package registry |
+| `-G` | `reg list` | List registries |
+| `-G` | `reg sync` | Sync registries |
+| `-G` | `reg remove <name>` | Remove registry |
 | `-S` | `install <name> [ver]` | Download and install package |
 | `-S` | `install --lock` | Install all packages from owl.lock |
 | `-S` | `install -l` | List packages from all registries |
@@ -190,16 +214,29 @@ entry = "code/main.mire"
 [build]
 compiler = "mire"
 profile = "debug"
-opt-level = "0"
+opt-level = 0
+artifact = "bin"
+runtime = "minimal"
+target = "x86_64-unknown-linux-gnu"
+panic = "abort"
+incremental = true
+debug-info = true
 
 [paths]
-sources = "code"
-tests = "tests"
-output = "bin"
+source = "code"
+test = "tests"
+bin = "bin/debug"
 cache = "bin/.cache"
+generated = "bin/generated"
 
-[dependencies]
+[deps]
 kioto = { path = "~/.owl/libs/kioto", version = "2.4.7" }
+
+[cfg]
+publisher = "publish.toml"
+registry = "mor"
+libs = "~/.owl/libs"
+cache = "~/.owl/cache"
 ```
 
 **Critical:** All external packages MUST be in `[dependencies]` for `load` to work.

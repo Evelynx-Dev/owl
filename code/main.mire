@@ -116,6 +116,7 @@ pub fn main: () {
 
     set cmd_idx = command_index(args)
     set cmd = rt_vec_get_str(args cmd_idx)
+    use dasu("DEBUG_N: n=" + string(n) + " cmd_idx=" + string(cmd_idx) + " cmd=" + string(cmd))
 
     if use! args::flag::has(args "--help") {
         set help_name = strings::copy(cmd)

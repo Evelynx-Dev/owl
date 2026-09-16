@@ -8,12 +8,25 @@ entry = "code/main.mire"
 compiler = "mire"
 profile = "debug"
 opt-level = "0"
+artifact = "bin"
+runtime = "minimal"
+target = "x86_64-unknown-linux-gnu"
+panic = "abort"
+incremental = true
+debug-info = true
 
 [paths]
 sources = "code"
 tests = "tests"
 output = "bin"
 cache = "bin/.cache"
+generated = "bin/generated"
+
+[cfg]
+publisher = "publish.toml"
+registry = "mor"
+cache = "~/.owl/cache"
+libs = "~/.owl/libs"
 
 [exports]
 owl = "code/main.mire"
@@ -31,10 +44,9 @@ deps = "code/deps"
 lockfile = "code/lockfile"
 gc = "code/gc"
 profile = "code/profile"
-tree = "code/tree"
 export = "code/export"
 upgrade = "code/upgrade"
 [dependencies]
 kioto = { path = "~/.owl/libs/kioto" }
-testlib = { path = "./tests/lib" }
+testlib = { path = "./testlib" }
 crypto = { path = "./code/crypto" }

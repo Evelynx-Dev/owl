@@ -7,7 +7,7 @@ load! /code/util
    prevents a short prefix (e.g. "f00d") from trusting a longer
    fingerprint ("f00dbabe") via substring containment.
 !/
-fn trust_list_contains: (content :&str, target :str) :bool {
+fn contains: (content :&str, target :str) :bool {
     set lines = use! util::split(content "\n")
     set n = len(lines)
     set i = 0 :i64 mut
@@ -19,7 +19,7 @@ fn trust_list_contains: (content :&str, target :str) :bool {
     return false
 }
 
-pub fn trust_is_trusted: (fingerprint :str) :bool {
+pub fn trusted: (fingerprint :str) :bool {
     set result = false :bool mut
     if fingerprint == "" {
         set result = false
@@ -29,13 +29,13 @@ pub fn trust_is_trusted: (fingerprint :str) :bool {
             set result = false
         } else {
             set content = fs::read(trusted_path)
-            set result = trust_list_contains(content fingerprint)
+            set result = contains(content fingerprint)
         }
     }
     return result
 }
 
-pub fn trust_is_revoked: (fingerprint :str) :bool {
+pub fn revoked: (fingerprint :str) :bool {
     set result = false :bool mut
     if fingerprint == "" {
         set result = false
@@ -45,13 +45,13 @@ pub fn trust_is_revoked: (fingerprint :str) :bool {
             set result = false
         } else {
             set content = fs::read(revoked_path)
-            set result = trust_list_contains(content fingerprint)
+            set result = contains(content fingerprint)
         }
     }
     return result
 }
 
-pub fn trust_trust: (fingerprint :str) {
+pub fn trust: (fingerprint :str) {
     if fingerprint != "" {
         set trusted_path = use! util::owl_home() + "/keys/trusted.toml"
         use! util::mkdir_p(use! util::owl_home() + "/keys")
@@ -62,7 +62,7 @@ pub fn trust_trust: (fingerprint :str) {
     }
 }
 
-pub fn trust_revoke: (fingerprint :str) {
+pub fn revoke: (fingerprint :str) {
     if fingerprint != "" {
         set revoked_path = use! util::owl_home() + "/keys/revoked.toml"
         set trusted_path = use! util::owl_home() + "/keys/trusted.toml"

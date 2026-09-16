@@ -3,8 +3,8 @@ module registry
 load! /code/util
 load! /code/trust
 
-pub fn cmd_registry_add: (url :str) {
-    set tmp = crypto::crypto_tempdir("owl-reg")
+pub fn add: (url :str) {
+    set tmp = use! crypto::tempdir("owl-reg")
     set proceed = true :bool mut
     if tmp == "" {
         use dasu("  [FAIL]  could not create temp directory")
@@ -54,7 +54,7 @@ pub fn cmd_registry_add: (url :str) {
         set rm_args = [] :vec[str] mut
         set rm_args = vec::push::str(rm_args "-rf")
         set rm_args = vec::push::str(rm_args strings::copy(tmp))
-        use proc::run::output("rm" rm_args)
+        use! util::rm_RF(tmp)
 
         if !fetched {
             use dasu("  [FAIL]  could not fetch registry.json from " + url)
@@ -102,7 +102,7 @@ pub fn cmd_registry_add: (url :str) {
                         use! util::mkdir_p(reg_path)
                         use fs::write(reg_json_path content)
 
-                        set fp_tmp = crypto::crypto_tempdir("owl-fp")
+                        set fp_tmp = use! crypto::tempdir("owl-fp")
                         set fp = "" :str mut
                         if fp_tmp != "" {
                             set fp_file = fp_tmp + "/pubkey"
@@ -111,13 +111,13 @@ pub fn cmd_registry_add: (url :str) {
                             set rm2 = [] :vec[str] mut
                             set rm2 = vec::push::str(rm2 "-rf")
                             set rm2 = vec::push::str(rm2 strings::copy(fp_tmp))
-                            use proc::run::output("rm" rm2)
+                            use! util::rm_RF(fp_tmp)
                         }
                         if fp == "" || len(fp) != 64 {
                             use dasu("  [WARN]  could not compute fingerprint for public key")
                         } else {
                             use dasu("  [INFO]  trusted key fingerprint: " + fp)
-                            use! trust::trust_trust(fp)
+                            use! trust::trust(fp)
                         }
 
                         use dasu("  [OK]    registry '" + name + "' added")
@@ -130,7 +130,7 @@ pub fn cmd_registry_add: (url :str) {
     return
 }
 
-pub fn cmd_registry_list: () {
+pub fn list: () {
     set reg_dir = use! util::owl_home_registries()
     set proceed = true :bool mut
     if !fs::exists(reg_dir) {
@@ -140,7 +140,7 @@ pub fn cmd_registry_list: () {
 
     if proceed {
         set reg_arg = strings::copy(reg_dir)
-        set out = use! util::trim_command("ls" ["-1" reg_arg])
+        set out = use! util::list_text(reg_arg)
         if out == "" {
             use dasu("  no registries configured")
             set proceed = false
@@ -189,7 +189,7 @@ pub fn cmd_registry_list: () {
     return
 }
 
-pub fn cmd_registry_remove: (name :str) {
+pub fn remove: (name :str) {
     set proceed = true :bool mut
     set reg_path = use! util::owl_home_registries() + "/" + name
     if !fs::exists(reg_path) {
@@ -207,7 +207,7 @@ pub fn cmd_registry_remove: (name :str) {
     return
 }
 
-pub fn cmd_registry_sync_one: (reg_path :str) {
+pub fn sync_one: (reg_path :str) {
     set proceed = true :bool mut
     if !fs::exists(reg_path + "/registry.json") {
         use dasu("    [SKIP]  no registry.json")
@@ -221,7 +221,7 @@ pub fn cmd_registry_sync_one: (reg_path :str) {
             set reg_url = use! util::json_get_str(content "name")
         }
 
-        set tmp = crypto::crypto_tempdir("owl-sync")
+        set tmp = use! crypto::tempdir("owl-sync")
         if tmp == "" {
             use dasu("    [FAIL]  could not create temp directory")
             set proceed = false
@@ -269,7 +269,7 @@ pub fn cmd_registry_sync_one: (reg_path :str) {
                 set rm_args = [] :vec[str] mut
                 set rm_args = vec::push::str(rm_args "-rf")
                 set rm_args = vec::push::str(rm_args strings::copy(tmp))
-                use proc::run::output("rm" rm_args)
+                use! util::rm_RF(tmp)
                 use dasu("    [FAIL]  could not fetch index.toml from " + reg_url)
                 set proceed = false
             }
@@ -285,18 +285,17 @@ pub fn cmd_registry_sync_one: (reg_path :str) {
                 set curl_args = vec::push::str(curl_args strings::copy(syncurl + ".sig"))
                 use proc::run::output("curl" curl_args)
                 set sig_file = tmp + "/index.toml.sig"
-                    set sig_size_arg = strings::copy(sig_file)
-                    set sig_size = use! util::trim_command("stat" ["-c" "%s" sig_size_arg])
-                if sig_size != "0" && pubkey != "" {
+                    set sig_size = use! util::file_size(sig_file)
+                if sig_size != 0 && pubkey != "" {
                     use dasu("    [INFO]  verifying index.toml signature...")
-                    set verify_result = crypto::crypto_verify_ed25519_sigfile(pubkey tmp + "/index.toml" sig_file)
+                    set verify_result = use! crypto::verify::sigfile(pubkey tmp + "/index.toml" sig_file)
                     if verify_result {
                         use dasu("    [OK]    signature valid")
                     } else {
                         set rm_args = [] :vec[str] mut
                         set rm_args = vec::push::str(rm_args "-rf")
                         set rm_args = vec::push::str(rm_args strings::copy(tmp))
-                        use proc::run::output("rm" rm_args)
+                        use! util::rm_RF(tmp)
                         use dasu("    [FAIL]  index.toml signature verification failed")
                         set proceed = false
                     }
@@ -312,14 +311,14 @@ pub fn cmd_registry_sync_one: (reg_path :str) {
                     set writable_path = strings::copy(reg_path)
                     use! util::fs_make_writable(writable_path)
                     use fs::write(strings::copy(reg_path + "/index.toml") index_content)
-                    set ts = use! util::trim_command("date" ["+%s"])
+                    set ts = use! util::i64_to_string(time::now::ms())
                     use fs::write(strings::copy(reg_path + "/last_sync") ts)
                     set readonly_path = strings::copy(reg_path)
                     use! util::fs_make_readonly(readonly_path)
                     set rm_args = [] :vec[str] mut
                     set rm_args = vec::push::str(rm_args "-rf")
                     set rm_args = vec::push::str(rm_args strings::copy(tmp))
-                    use proc::run::output("rm" rm_args)
+                    use! util::rm_RF(tmp)
 
                     use dasu("    [OK]    synced " + reg_path)
                 }
@@ -329,7 +328,7 @@ pub fn cmd_registry_sync_one: (reg_path :str) {
     return
 }
 
-pub fn cmd_registry_sync: () {
+pub fn sync: () {
     set reg_dir = use! util::owl_home_registries()
     set proceed = true :bool mut
     if !fs::exists(reg_dir) {
@@ -340,7 +339,7 @@ pub fn cmd_registry_sync: () {
     if proceed {
         set registry_root = use! util::owl_home_registries()
         set registry_arg = strings::copy(registry_root)
-        set out = use! util::trim_command("ls" ["-1" registry_arg])
+    set out = use! util::list_text(registry_arg)
         if out == "" {
             use dasu("  no registries configured")
             set proceed = false
@@ -391,7 +390,7 @@ pub fn cmd_registry_sync: () {
                         if sync_this {
                             set reg_path = use! util::owl_home_registries() + "/" + entry
                             if fs::exists(reg_path + "/registry.json") && !fs::exists(reg_path + "/.disabled") {
-                                use! registry::cmd_registry_sync_one(reg_path)
+                                use! registry::sync_one(reg_path)
                             }
                         }
                     }

@@ -5,6 +5,8 @@ load! /code/lockfile
 load! /code/deps
 load! /code/install
 load! /code/args
+    set cfg_lock = use! util::toml_get("owl.toml" "cfg" "lock")
+    if cfg_lock == "0" { return true }
 
 extern fn exit: (code :i64) lib "c"
 
@@ -62,8 +64,13 @@ pub fn test_config: (args :&vec[str]) :str {
     set entry = use! util::config_required("project" "entry")
     set artifact = use! util::arg_value(args "--artifact") :str mut
     if artifact == "" { set artifact = "bin" }
-    set runtime = use! util::arg_value(args "--runtime") :str mut
-    if runtime == "" { set runtime = "minimal" }
+// ----- owl writes a normalized mire config per artifact; the tier and target
+// ----- must still honor the project's owl.toml so full-tier projects (e.g.
+// ----- the avenys test suite) don't silently regress to "minimal".
+set runtime = use! util::arg_value(args "--runtime") :str mut
+if runtime == "" {
+    set runtime = use! util::config_default("build" "runtime" "minimal")
+}
     set target = use! util::arg_value(args "--target") :str mut
     if target == "" { set target = "x86_64-unknown-linux-gnu" }
     set output = use! util::config_required("paths" "output")
@@ -189,7 +196,9 @@ pub fn compile: (args :&vec[str] is_run :bool) {
             set artifact = use! util::arg_value(args "--artifact") :str mut
             if artifact == "" { set artifact = "bin" }
             set runtime = use! util::arg_value(args "--runtime") :str mut
-            if runtime == "" { set runtime = "minimal" }
+            if runtime == "" {
+                set runtime = use! util::config_default("build" "runtime" "minimal")
+            }
             set target = use! util::arg_value(args "--target") :str mut
             if target == "" { set target = "x86_64-unknown-linux-gnu" }
 

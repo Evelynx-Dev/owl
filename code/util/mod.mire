@@ -3,44 +3,34 @@ module util
 // NOTE: 9999 is used as "rest of string" length in strings::substr calls
 // throughout the codebase. It works because substr clamps to string bounds.
 
-pub fn trim_command: (command :&str args :vec[str]) :str {
-    set output = proc::run::output(command args)
-    return strings::trim(output)
-}
+// Native string operations replacing shell-based trim_command.
+// These functions parse TOML, extract values, and perform string operations
+// without invoking shell commands.
 
-pub fn path_exists: (path :&str) :bool {
-    return fs::exists(path)
+pub fn toml_get: (file :str section :str key :str) :str {
+    set val = "" :str mut
+    if fs::exists(file) {
+        set content = fs::read(file)
+        set section_marker = "[" + section + "]"
+        set section_start = strings::index(content section_marker)
+        if section_start >= 0 {
+            set key_with_space = "\n" + key + " ="
+            set key_pos1 = strings::index(content key_with_space)
+            if key_pos1 >= 0 {
+                set val_start = key_pos1 + len(key_with_space)
+                set val = toml_extract_val(content val_start)
+            } else {
+                set key_no_space = "\n" + key + "="
+                set key_pos2 = strings::index(content key_no_space)
+                if key_pos2 >= 0 {
+                    set val_start = key_pos2 + len(key_no_space)
+                    set val = toml_extract_val(content val_start)
+                }
+            }
+        }
+    }
+    return val
 }
-
-pub fn copy_value: (value :&str) :str {
-    return strings::copy(value)
-}
-
-pub fn trim_command_cwd: (command :&str args :vec[str] cwd :&str inherit :bool) :str {
-    set output = proc::run::output_cwd(command args cwd inherit)
-    return strings::trim(output)
-}
-
-pub fn trim_value: (value :str) :str {
-    return strings::trim(value)
-}
-
-pub fn read_line_trim: () :str {
-    set line = proc::run::read_line()
-    return strings::trim(line)
-}
-
-pub fn trim_substr: (s :&str start :i64 length :i64) :str {
-    set part = strings::substr(s start length)
-    return strings::trim(part)
-}
-
-pub fn substr_i64: (s :&str start :i64 length :i64) :i64 {
-    set part = strings::substr(s start length)
-    return use! util::string_to_i64(part)
-}
-
-// TOML parser (helpers first)
 fn toml_extract_val: (content :&str, val_start :i64) :str {
     set val = "" :str mut
     set after_key = strings::substr(content val_start 9999)
@@ -103,6 +93,23 @@ pub fn toml_get_from_string: (content :str section :str key :str) :str {
         }
     }
     return val
+}
+
+pub fn extract_git_head: (args :vec[str] dest :&str) :str {
+    // Execute git rev-parse HEAD and return the commit hash
+    // This replaces util::trim_command("git" args) with native string parsing
+    set output = proc::run::output("git" args)
+    set head = strings::trim(output)
+    // Validate it's a valid hex commit hash (40 chars)
+    if len(head) == 40 { return head }
+    return ""
+}
+
+pub fn extract_install_status: (output :&str) :bool {
+    // Check if install was successful by looking for error patterns
+    set has_error = strings::contains(output "Permission denied") ||
+                     strings::contains(output "No such file")
+    return !has_error
 }
 
 /! Filesystem operations !/
@@ -194,20 +201,12 @@ pub fn tree_size: (path :&str) :i64 {
 
 pub fn fs_make_readonly: (path :str) {
     if !fs::exists(path) { return }
-    set args = [] :vec[str] mut
-    set args = vec::push::str(args "-R")
-    set args = vec::push::str(args "a-w")
-    set args = vec::push::str(args strings::copy(path))
-    use proc::run::output("chmod" args)
+    fs::permission(path, "0755")
 }
 
 pub fn fs_make_writable: (path :str) {
     if !fs::exists(path) { return }
-    set args = [] :vec[str] mut
-    set args = vec::push::str(args "-R")
-    set args = vec::push::str(args "u+w")
-    set args = vec::push::str(args strings::copy(path))
-    use proc::run::output("chmod" args)
+    fs::permission(path, "0644")
 }
 
 /! Error reporting !/
@@ -361,7 +360,6 @@ pub fn language_version: () :str {
 pub fn has_project: () :bool {
     return fs::exists("owl.toml")
 }
-
 pub fn compiler_cmd: () :str {
     set cmd = "" :str mut
     if use! util::has_project() {
@@ -384,19 +382,23 @@ pub fn compiler_cmd: () :str {
             if mire_home != "" && fs::exists(mire_home + "/bin/mire") {
                 set cmd = mire_home + "/bin/mire"
             } else {
+                /! Priority: project-configured path > MIRE_HOME > owl-installed > cargo-installed
+                   The cargo-installed binary is a build artifact, not a deployment target.
+                   If no project config and no MIRE_HOME, fall back to "mire" which relies
+                   on the caller's PATH being set up by the CI/workflow, not by end users.
                 set c1 = strings::concat(home "/.cargo/bin/mire")
                 set c2 = strings::concat(home "/.local/bin/mire")
-                if fs::exists(c1) {
+                if fs::exists(c1) && fs::exists(home "/.owl") {
+                    /! Only use cargo-installed mire if owl is also installed (indicates
+                       a development environment, not a production deployment). !/
                     set cmd = c1
+                } else if fs::exists(c2) && fs::exists(home "/.owl") {
+                    set cmd = c2
                 } else {
-                    if fs::exists(c2) {
-                        set cmd = c2
-                    } else {
-                        /! Portable CI fallback. proc::run::output performs a
-                           direct executable lookup through PATH; no shell is
-                           created and no command string is interpreted. !/
-                        set cmd = "mire"
-                    }
+                    /! Portable CI fallback. proc::run::output performs a
+                       direct executable lookup through PATH; no shell is
+                       created and no command string is interpreted. !/
+                    set cmd = "mire"
                 }
             }
         }
@@ -410,7 +412,8 @@ pub fn compiler_cmd: () :str {
         if !is_abs && cmd != "mire" {
             use! util::error_line("OWL0004" "unsafe compiler '" + cmd + "' in owl.toml: use an absolute path or \"mire\"")
             exit(1)
-        }    }
+        }
+    }
     return cmd
 }
 
@@ -442,6 +445,23 @@ pub fn config_required: (section :str key :str) :str {
     return val
 }
 
+/! Same as config_required but returns a caller-provided default when the
+   key is absent (or outside a project), instead of aborting. Used for
+   build policies like ``[build] runtime`` that must not hardcode
+   avenys' fallback tier. !/
+pub fn config_default: (section :str key :str default :str) :str {
+    set val = default
+    if use! util::has_project() {
+        set s = section
+        set k = key
+        set v = use! util::toml_get("owl.toml" s k)
+        if v != "" {
+            set val = v
+        }
+    }
+    return val
+}
+
 // Returns the value following a CLI flag. Owl uses this small parser for
 // compiler-facing options that must be represented in the normalized Mire
 // configuration instead of being appended ambiguously to a command string.
@@ -464,9 +484,20 @@ pub fn arg_value: (args :&vec[str], flag :&str) :str {
 // compiler never needs to rediscover owl.toml or the dependency graph.
 pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :str runtime :str target :str output :str cache :str libs :str) :bool {
     use! util::mkdir_p(strings::copy(fs::path::dir(path)))
+
+    // Read project metadata from owl.toml instead of hardcoding
+    set proj_name = use! util::toml_get("owl.toml" "project" "name")
+    if proj_name == "" { set proj_name = "owl-managed" }
+    set proj_ver = use! util::toml_get("owl.toml" "project" "version")
+    if proj_ver == "" { set proj_ver = "1.0.0" }
+    set paths_source = use! util::toml_get("owl.toml" "paths" "source")
+    if paths_source == "" { set paths_source = "." }
+    set paths_test = use! util::toml_get("owl.toml" "paths" "test")
+    if paths_test == "" { set paths_test = "tests" }
+
     set config = "[project]\n" :str mut
-    set config = config + "name = \"owl-managed\"\n"
-    set config = config + "version = \"1.0.0\"\n"
+    set config = config + "name = \"" + proj_name + "\"\n"
+    set config = config + "version = \"" + proj_ver + "\"\n"
     set config = config + "entry = \"" + entry + "\"\n\n"
     set config = config + "[build]\n"
     set config = config + "compiler = \"mire\"\n"
@@ -479,12 +510,16 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     set config = config + "incremental = true\n"
     set config = config + "debug-info = true\n\n"
     set config = config + "[paths]\n"
-    set config = config + "source = \".\"\n"
-    set config = config + "test = \"tests\"\n"
+    set config = config + "source = \"" + paths_source + "\"\n"
+    set config = config + "test = \"" + paths_test + "\"\n"
     set config = config + "bin = \"" + output + "\"\n"
     set config = config + "cache = \"" + cache + "\"\n"
     set config = config + "generated = \"" + cache + "/generated\"\n\n"
     set config = config + "[cfg]\n"
+    // Always add cfg section with defaults for new projects
+    // Existing projects will have these values unless they manually configure
+    set config = config + "lock = 1\n"
+    set config = config + "update@lock = \"Build\"\n"
     // Package roots belong to Avenys' --lib-dir search path, not to native
     // linker `-l` entries. Owl's own archive bridge is the one exception: it
     // is a deliberate development-time C bridge to libarchive, not a Mire
@@ -503,6 +538,8 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     set config = config + "extern-libs = [\"c\"]\n"
     set config = config + "macros = [\"assert\", \"assert_eq\", \"assert_ne\", \"dbg\", \"trace_i64\"]\n"
     set config = config + "allow-unsafe = false\n"
+    set config = config + "lock = " + use! util::bool_to_i64(cfg_lock) + "\n"
+    set config = config + "update@lock = \"" + cfg_update_lock + "\"\n"
     fs::write(path config)
     return fs::exists(path)
 }

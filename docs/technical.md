@@ -1,12 +1,12 @@
 # Owl Technical Notes
 
-## Architecture (v0.31.0)
+## Architecture (v1.0.0)
 
 ### CLI core
 - Entrypoint: `code/main.mire` (slim dispatcher)
 - Codebase modularized into 18 sub-packages under `code/`:
   `util`, `crypto`, `trust`, `registry`, `build`, `check`, `info`, `ui`,
-  `args`, `deps`, `export`, `gc`, `install`, `lockfile`, `profile`, `semver`, `tree`, `upgrade`
+  `args`, `deps`, `export`, `gc`, `install`, `lockfile`, `profile`, `semver`, `upgrade`
 - All internal modules imported via `load!` (local) with `use!` calls
 - `load!` modules use path prefixes (`/code/util`, `/code/crypto`, etc.)
 - Supports both long commands and pacman-style short flags (`-B`, `-T`, `-S`, etc.)
@@ -40,11 +40,12 @@
 ### Package management
 - `~/.owl/` directory structure:
   - `libs/<name>/` -- installed packages (tarballs extracted here)
-  - `registries/<name>/` -- synced registry data (index.toml, index.toml.sig)
+  - `reg/<name>/` -- synced registry data (index.toml, index.toml.sig)
   - `cache/tarballs/` -- downloaded tarballs (cleaned by `owl gc`)
 - `owl load <name>` -- adds dependency to owl.toml [dependencies]
-- `owl load -Lu <url>` -- adds a package registry
-- `owl load -Ls` -- syncs registries via HTTP (curl)
+- `owl reg add <url>` -- adds a package registry
+- `owl reg sync` -- syncs configured registries
+- `owl reg list` / `owl reg remove <name>` -- manages configured registries
 - `owl install <name>` -- downloads and installs from registries
 - `owl install --lock` -- installs all packages from owl.lock
 - `owl export` -- packages and signs for registry publication
@@ -54,6 +55,16 @@
 - Contains `[[package]]` entries with: name, version, path, registry, abi, compiler, language
 - `owl install --lock` reads lockfile and installs missing packages
 - Registry resolution: scans configured registries when no explicit registry field
+
+### Local dependency records
+
+Owl creates `~/.owl/cfg/` when package installation begins. Each successfully
+installed package may have a plain-text record named after the package, with
+its exact version, resolved path, registry, SHA-256 and a `verified` flag.
+These records are fallback metadata only: a dependency declared in
+`owl.toml` always takes precedence. A missing or stale record is never treated
+as proof of integrity, and package installation still requires the registry
+checksum and Ed25519 verification unless `--no-verify` is explicitly chosen.
 
 ### Module resolution
 - Internal modules: `load!` with path prefixes (`/code/util`, `/code/crypto`)
@@ -78,14 +89,15 @@ Owl relies on compiler built-ins (not kioto imports):
 - `owl clean --bin` removes `bin/`
 - `owl clean --all` removes both plus `deps/` and `_test_harness.mire`
 
-### Current scope (v0.31.0)
-- Project management: `new`, `run`, `build`, `test`, `clean`, `info`, `check`, `checkup`, `profile`, `tree`
+### Current scope (v1.0.0)
+- Project management: `new`, `run`, `build`, `test`, `clean`, `info`, `check`, `checkup`, `profile`
 - `checkup` validates all owl.toml fields, dependency count, and lockfile integrity
 - Package management: `load`, `install`, `install --lock`, `export`, `gc`, `upgrade`
-- Registry management: `load -Lu`, `load -Ls`, `load -Ll`, `load -Lr`
+- Registry management: `reg add`, `reg sync`, `reg list`, `reg remove`
 - Dependency pruning: `deps --prune`, `install --prune`
 - Pacman-style short flags for all primary commands
-- Registry sync via HTTP (curl-based, no git required)
+- Registry sync via HTTP; package installation verifies the registry hash
+  before accepting an archive.
 
 ## Audit hardening (0.31.0)
 

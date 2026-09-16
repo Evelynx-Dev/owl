@@ -80,8 +80,24 @@ pub fn extract_field: (tbl :str, field :str) :str {
 
 pub fn get_dep_field: (dep_name :str, field :str) :str {
     set result = "" :str mut
+    set cfg_name = strings::copy(dep_name)
+    set cfg_field = strings::copy(field)
+    set raw_field = strings::copy(field)
     set raw = use! deps::find_dep_raw(dep_name)
-    if raw != "" { set result = use! deps::extract_field(raw field) }
+    if raw != "" { set result = use! deps::extract_field(raw raw_field) }
+    if result == "" {
+        set cfg_file = use! util::cfg::package(cfg_name)
+        if fs::exists(cfg_file) {
+            set cfg_content = fs::read(cfg_file)
+            set cfg_content_sha = strings::copy(cfg_content)
+            set cfg_content_value = strings::copy(cfg_content)
+            set cfg_verified = use! deps::extract_field(cfg_content "verified")
+            set cfg_sha = use! deps::extract_field(cfg_content_sha "sha256")
+            if cfg_verified == "true" && cfg_sha != "" {
+                set result = use! deps::extract_field(cfg_content_value cfg_field)
+            }
+        }
+    }
     return result
 }
 
@@ -113,6 +129,41 @@ pub fn get_dep_names: () :str {
             }
             set pos = real_nl + 1
         }
+    }
+    return result
+}
+
+/! Build the explicit search path handed to Avenys. Owl has already resolved
+   each dependency; the compiler receives these directories and does not parse
+   the project's dependency table. !/
+pub fn compiler_lib_dirs: () :str {
+    /! Avenys receives real filesystem paths, not the display form
+       `~/.owl/libs`. Keeping the expansion here also makes local path
+       dependencies reproducible when Owl is launched without a shell. !/
+    set result = use! util::owl_home_libs() :str mut
+    set names = use! deps::get_dep_names()
+    set pos = 0 :i64 mut
+    set total = len(names)
+    while pos < total {
+        set rest = strings::substr(names pos total - pos)
+        set nl = strings::index(rest "\n")
+        set size = total - pos mut
+        if nl >= 0 { set size = nl }
+        set name = use! util::trim_substr(names pos size)
+        if name != "" {
+            set path = use! deps::get_dep_field(name "path") mut
+            if path != "" {
+                set path = use! util::expand_home(path) mut
+                /! Avenys treats every --lib-dir as a package directory and
+                   appends the dependency name to it. Therefore a dependency
+                   declared as `./testlib` contributes its parent (`.`), not
+                   the package root itself. !/
+                set parent = fs::path::dir(path) mut
+                if parent == "" { set parent = "." }
+                set result = result + ":" + parent
+            }
+        }
+        if nl < 0 { set pos = total } else { set pos = pos + nl + 1 }
     }
     return result
 }
@@ -213,7 +264,7 @@ pub fn gather_latest_libs: () :str {
     set lib_dir = use! util::owl_home_libs()
     set lib_display = use! util::owl_home_libs_display()
     if !fs::exists(lib_dir) { return "" }
-    set raw = proc::run::output("ls" ["-1" lib_dir])
+    set raw = use! util::list_text(lib_dir)
     set entries = strings::split(raw "\n")
     set out = "" :str mut
     set i = 0 :i64 mut
@@ -245,7 +296,7 @@ pub fn prune_unused: () :bool {
     set used = use! deps::used_dep_names()
     set section = use! deps::deps_section()
     set names = use! deps::get_dep_names()
-    if names == "" { return use! lockfile::generate_lockfile() }
+    if names == "" { return use! lockfile::generate() }
     set pos = 0 :i64 mut
     set nlen = len(names)
     set kept = "" :str mut
@@ -287,7 +338,7 @@ pub fn prune_unused: () :bool {
     if next_sec < 0 { set after = "" } else { set after = strings::substr(after next_sec len(after) - next_sec) }
     set new_c = before + "\n" + kept + after
     use fs::write("owl.toml" new_c)
-    return use! lockfile::generate_lockfile()
+    return use! lockfile::generate()
 }
 
 /! Returns newline-separated names of dependencies referenced by

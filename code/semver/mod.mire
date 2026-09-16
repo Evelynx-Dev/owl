@@ -213,7 +213,7 @@ pub fn resolve_from_registry: (name :&str constraint :&str) :str {
     if cached == "" {
         set reg_dir = use! util::owl_home_registries()
         set reg_arg = strings::copy(reg_dir)
-        set reg_list = use! util::trim_command("ls" ["-1" reg_arg])
+        set reg_list = use! util::list_text(reg_arg)
         if reg_list == "" { set result = "" }
         if reg_list != "" {
             set all_versions = "" :str mut
@@ -224,18 +224,19 @@ pub fn resolve_from_registry: (name :&str constraint :&str) :str {
                 set reg_name = use! util::trim(use! util::list_get(entries i_reg))
                 if reg_name != "" {
                     set index_path = reg_dir + "/" + reg_name + "/index.toml"
-                    set grep_args = [] :vec[str] mut
-                    set grep_args = vec::push::str(grep_args "-A1")
-                    set grep_args = vec::push::str(grep_args strings::copy("^name = \"" + strings::copy(name) + "\""))
-                    set grep_args = vec::push::str(grep_args strings::copy(index_path))
-                    set grep_out = use! util::trim_command("grep" grep_args)
+                    set grep_out = fs::read(index_path)
                     set vlines = strings::split(grep_out "\n")
                     set vn = len(vlines)
                     set vi = 0 :i64 mut
                     set found_version = "" :str mut
+                    set found_name = false :bool mut
                     while vi < vn {
                         set vline = use! util::trim(use! util::list_get(vlines vi))
-                        if use! util::startswith(vline "version = ") {
+                        if use! util::startswith(vline "name = ") {
+                            set expected = "name = \"" + strings::copy(name) + "\""
+                            set found_name = vline == expected
+                        }
+                        if found_name && use! util::startswith(vline "version = ") {
                             set eq = strings::index(vline "=")
                             if eq >= 0 {
                                 set after = strings::substr(vline eq + 1 9999) :str mut
@@ -243,6 +244,7 @@ pub fn resolve_from_registry: (name :&str constraint :&str) :str {
                                 if use! util::startswith(after "\"") { set after = use! util::replace(after "\"" "") }
                                 set found_version = after
                             }
+                            set found_name = false
                         }
                         set vi += 1
                     }

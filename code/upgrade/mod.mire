@@ -3,9 +3,9 @@ module upgrade
 load! /code/util
 load! /code/args
 
-pub fn cmd_upgrade: (args :&vec[str]) :i64 {
-    set yes = use! args::has_flag(args "--yes") || use! args::has_flag(args "-y")
-    set url_flag = use! args::get_flag_value(args "--url")
+pub fn run: (args :&vec[str]) :i64 {
+    set yes = use! args::flag::has(args "--yes") || use! args::flag::has(args "-y")
+    set url_flag = use! args::flag::value(args "--url")
 
     use dasu("owl upgrade -- self-update")
     use dasu("")
@@ -34,24 +34,18 @@ pub fn cmd_upgrade: (args :&vec[str]) :i64 {
     }
 
     use dasu("cloning repository...")
-    set rm1 = [] :vec[str] mut
-    set rm1 = vec::push::str(rm1 "-rf")
-    set rm1 = vec::push::str(rm1 strings::copy(tmp_dir))
-    use proc::run::output("rm" rm1)
+    use! util::rm_RF(tmp_dir)
     set clone_args = [] :vec[str] mut
     set clone_args = vec::push::str(clone_args "--depth")
     set clone_args = vec::push::str(clone_args "1")
     set clone_args = vec::push::str(clone_args strings::copy(remote_url))
     set clone_args = vec::push::str(clone_args strings::copy(tmp_dir))
-    set clone_out = use! util::trim_command("git" clone_args)
+    set clone_out = use! proc::run::output("git" clone_args)
     set clone_ok = clone_out
     if strings::contains(clone_ok "fatal") || strings::contains(clone_ok "error") {
         use dasu("error: git clone failed")
         use dasu(clone_ok)
-        set rm2 = [] :vec[str] mut
-        set rm2 = vec::push::str(rm2 "-rf")
-        set rm2 = vec::push::str(rm2 strings::copy(tmp_dir))
-        use proc::run::output("rm" rm2)
+        use! util::rm_RF(tmp_dir)
         return 1
     }
     use dasu("  clone ok")
@@ -75,14 +69,7 @@ pub fn cmd_upgrade: (args :&vec[str]) :i64 {
     if !fs::exists(new_bin) {
         use dasu("error: build failed")
         use dasu(build_out)
-        set rm3 = [] :vec[str] mut
-        set rm3 = vec::push::str(rm3 "-rf")
-        set rm3 = vec::push::str(rm3 strings::copy(tmp_dir))
-        set rm3b = [] :vec[str] mut
-        set rm3b = vec::push::str(rm3b "-f")
-        set rm3b = vec::push::str(rm3b strings::copy(tmp_dir + "/../kioto"))
-        use proc::run::output("rm" rm3)
-        use proc::run::output("rm" rm3b)
+        use! util::rm_RF(tmp_dir)
         return 1
     }
     use dasu("  build ok")
@@ -100,30 +87,17 @@ pub fn cmd_upgrade: (args :&vec[str]) :i64 {
     set inst_args = vec::push::str(inst_args "0755")
     set inst_args = vec::push::str(inst_args strings::copy(new_bin))
     set inst_args = vec::push::str(inst_args strings::copy(owl_bin))
-    set install_out = use! util::trim_command("install" inst_args)
-    if strings::contains(install_out "Permission denied") || strings::contains(install_out "No such file") {
+    set inst_out = use! proc::run::output("install" inst_args)
+    set install_ok = util::extract_install_status(inst_out)
+    if !install_ok {
         use dasu("error: install failed - permission denied or path not found")
         use dasu("try running with sudo:")
         use dasu("  sudo install -m 0755 " + new_bin + " " + owl_bin)
-        set rm4 = [] :vec[str] mut
-        set rm4 = vec::push::str(rm4 "-rf")
-        set rm4 = vec::push::str(rm4 strings::copy(tmp_dir))
-        set rm4b = [] :vec[str] mut
-        set rm4b = vec::push::str(rm4b "-f")
-        set rm4b = vec::push::str(rm4b strings::copy(tmp_dir + "/../kioto"))
-        use proc::run::output("rm" rm4)
-        use proc::run::output("rm" rm4b)
+        use! util::rm_RF(tmp_dir)
         return 1
     }
 
-    set rm5 = [] :vec[str] mut
-    set rm5 = vec::push::str(rm5 "-rf")
-    set rm5 = vec::push::str(rm5 strings::copy(tmp_dir))
-    set rm5b = [] :vec[str] mut
-    set rm5b = vec::push::str(rm5b "-f")
-    set rm5b = vec::push::str(rm5b strings::copy(tmp_dir + "/../kioto"))
-    use proc::run::output("rm" rm5)
-    use proc::run::output("rm" rm5b)
+    use! util::rm_RF(tmp_dir)
     use dasu("done! owl has been updated.")
     use dasu("restart your shell or run: hash -r")
     return 0

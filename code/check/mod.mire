@@ -5,7 +5,7 @@ load! /code/deps
 load! /code/lockfile
 
 /! Regenerate owl.toml with defaults for specified fields !/
-pub fn regenerate_owl_toml: (fields :str) {
+pub fn regenerate: (fields :str) {
     if !use! util::has_project() {
         use dasu("No owl.toml found in the current directory")
     } else {
@@ -38,7 +38,7 @@ pub fn regenerate_owl_toml: (fields :str) {
 }
 
 /! Print checkup help !/
-pub fn cmd_checkup_help: () {
+pub fn help: () {
     use dasu("Usage: owl checkup [--fix <field> ...] [--cache] [--deps] [--loads]")
     use dasu("")
     use dasu("Run project diagnostics and repair.")
@@ -67,14 +67,14 @@ pub fn cmd_checkup_help: () {
 }
 
 /! Main checkup command !/
-pub fn cmd_checkup: (args :&vec[str]) {
+pub fn checkup: (args :&vec[str]) {
     set n = rt_vec_len(args)
 
     set i = 1 :i64 mut
     while i < n {
         set a = rt_vec_get_str(args i)
         if a == "--help" || a == "-h" {
-            use! check::cmd_checkup_help()
+            use! check::help()
             return
         }
         set i += 1
@@ -142,7 +142,7 @@ pub fn cmd_checkup: (args :&vec[str]) {
         if use! util::has_project() {
             use dasu("")
             if use! util::contains(fix_fields "loads") {
-                use! check::fix_loads()
+                use! check::loads()
             } else {
                 if use! util::contains(fix_fields "deps") {
                     use! check::checkup_fix_deps()
@@ -150,7 +150,7 @@ pub fn cmd_checkup: (args :&vec[str]) {
                     if use! util::contains(fix_fields "cache") {
                         use! check::checkup_fix_cache()
                     } else {
-                        use! check::regenerate_owl_toml(fix_fields)
+                        use! check::regenerate(fix_fields)
                     }
                 }
             }
@@ -179,7 +179,7 @@ pub fn cmd_checkup: (args :&vec[str]) {
 
             if check_deps {
                 use dasu("")
-                if !use! lockfile::lockfile_validate() { set all_ok = false }
+                if !use! lockfile::validate() { set all_ok = false }
             }
 
             if check_cache {
@@ -207,7 +207,7 @@ pub fn cmd_checkup: (args :&vec[str]) {
 /! Check compiler installation !/
 fn checkup_compiler: () :bool {
     set ok = true :bool mut
-    set compiler_out = use! util::trim_command("mire" ["--version"])
+    set compiler_out = use! util::trim_command(use! util::compiler_cmd() ["--version"])
     if compiler_out == "" {
         use dasu("  [FAIL] compiler: mire not found")
         use dasu("         install mire (Avenys) to compile projects")
@@ -555,14 +555,7 @@ fn checkup_cache: () :bool {
             use dasu("  [WARN] cache: stale (" + use! util::i64_to_string(stale_count) + " source files modified after cache)")
             set ok = false
         } else {
-            set du_args = [] :vec[str] mut
-            set du_args = vec::push::str(du_args "-sh")
-            set du_args = vec::push::str(du_args strings::copy(cache_dir))
-            set size_out = use! util::trim_command("du" du_args) :str mut
-            if size_out == "" { set size_out = "?" }
-            set size_val = use! util::split(size_out "\t")
-            set size_display = use! util::list_get(size_val 0) :str mut
-            if size_display == "" { set size_display = "?" }
+            set size_display = use! util::i64_to_string(use! util::tree_size(cache_dir))
             use dasu("  [OK]   cache: " + use! util::i64_to_string(file_count) + " files (" + size_display + "), up to date")
         }
     } else {
@@ -653,7 +646,7 @@ fn checkup_fix_deps: () {
     if fixed > 0 {
         use dasu("")
         use dasu("  regenerating lockfile ...")
-        use! lockfile::generate_lockfile()
+        use! lockfile::generate()
     } else {
         use dasu("  [OK]   all dependency paths are valid")
     }
@@ -674,7 +667,7 @@ fn checkup_fix_cache: () {
 }
 
 /! Dependency validation command (owl check) !/
-pub fn cmd_check: (args :&vec[str]) {
+pub fn run: (args :&vec[str]) {
     if !use! util::has_project() {
         use dasu("  [FAIL]  no owl.toml found")
     } else {
@@ -775,7 +768,7 @@ pub fn cmd_check: (args :&vec[str]) {
    ~/.owl/libs, and injects missing entries into owl.toml.
    Then regenerates the lockfile.
 !/
-pub fn fix_loads: () {
+pub fn loads: () {
     if !use! util::has_project() {
         use dasu("  [FAIL] no owl.toml found")
         return
@@ -838,6 +831,6 @@ pub fn fix_loads: () {
     if injected > 0 {
         use dasu("")
         use dasu("  regenerating lockfile ...")
-        use! lockfile::generate_lockfile()
+        use! lockfile::generate()
     }
 }
