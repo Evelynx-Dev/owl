@@ -11,8 +11,12 @@ pub fn toml_get: (file :str section :str key :str) :str {
     set val = "" :str mut
     if fs::exists(file) {
         set content = fs::read(file)
-        set section_marker = "[" + section + "]"
-        set section_start = strings::index(content section_marker)
+        set section_marker = "[" + section + "]" :str mut
+        set section_start = strings::index(content section_marker) :i64 mut
+        if section_start < 0 {
+            set section_marker = "[\"" + section + "\"]"
+            set section_start = strings::index(content section_marker)
+        }
         if section_start >= 0 {
             set key_with_space = "\n" + key + " ="
             set key_pos1 = strings::index(content key_with_space)
@@ -48,31 +52,6 @@ fn toml_extract_val: (content :&str, val_start :i64) :str {
     return val
 }
 
-pub fn toml_get: (file :str section :str key :str) :str {
-    set val = "" :str mut
-    if fs::exists(file) {
-        set content = fs::read(file)
-        set section_marker = "[" + section + "]"
-        set section_start = strings::index(content section_marker)
-        if section_start >= 0 {
-            set key_with_space = "\n" + key + " ="
-            set key_pos1 = strings::index(content key_with_space)
-            if key_pos1 >= 0 {
-                set val_start = key_pos1 + len(key_with_space)
-                set val = toml_extract_val(content val_start)
-            } else {
-                set key_no_space = "\n" + key + "="
-                set key_pos2 = strings::index(content key_no_space)
-                if key_pos2 >= 0 {
-                    set val_start = key_pos2 + len(key_no_space)
-                    set val = toml_extract_val(content val_start)
-                }
-            }
-        }
-    }
-    return val
-}
-
 pub fn toml_get_from_string: (content :str section :str key :str) :str {
     set val = "" :str mut
     set section_marker = "[" + section + "]"
@@ -95,6 +74,51 @@ pub fn toml_get_from_string: (content :str section :str key :str) :str {
     return val
 }
 
+/! Inserts or replaces `key = "value"` inside `[section]` of a TOML file,
+   creating the section (and the file) when needed. Section names that are not
+   valid TOML bare keys (e.g. `owl@lock`) are written quoted. Returns true on
+   write. !/
+pub fn toml_set: (file :str section :str key :str value :str) :bool {
+    set content = "" :str mut
+    if fs::exists(file) { set content = fs::read(file) }
+    set header = "[" + section + "]" :str mut
+    if strings::index(section "@") >= 0 { set header = "[\"" + section + "\"]" }
+    set key_line = key + " = \"" + value + "\""
+    set sec_pos = strings::index(content header)
+    if sec_pos >= 0 {
+        set body_start = sec_pos + strings::len(header)
+        set after = strings::substr(content body_start 9999)
+        set next_rel = strings::index(after "\n[")
+        set sec_end = strings::len(content) :i64 mut
+        if next_rel >= 0 { set sec_end = body_start + next_rel + 1 }
+        set span = sec_end - body_start :i64 mut
+        set section_body = strings::substr(content body_start span)
+        set lines = strings::split(section_body "\n")
+        set out_body = "" :str mut
+        set replaced = false :bool mut
+        set i = 0 :i64 mut
+        set n = vec::len(lines)
+        while i < n {
+            set line = vec::get::str(lines i)
+            set trimmed = strings::trim(line)
+            if !replaced && (strings::starts::with(trimmed key + " =") || strings::starts::with(trimmed key + "=")) {
+                if i < n - 1 || strings::len(trimmed) > 0 { set out_body = out_body + key_line + "\n" }
+                set replaced = true
+            } else {
+                if i < n - 1 || strings::len(line) > 0 { set out_body = out_body + line + "\n" }
+            }
+            set i = i + 1
+        }
+        if !replaced { set out_body = key_line + "\n" + out_body }
+        set new_content = strings::substr(content 0 body_start) + out_body + strings::substr(content sec_end 9999)
+        fs::write(file new_content)
+        return true
+    }
+    if strings::len(content) > 0 && !strings::ends::with(content "\n") { set content = content + "\n" }
+    fs::write(file content + header + "\n" + key_line + "\n")
+    return true
+}
+
 pub fn extract_git_head: (args :vec[str] dest :&str) :str {
     // Execute git rev-parse HEAD and return the commit hash
     // This replaces util::trim_command("git" args) with native string parsing
@@ -107,9 +131,9 @@ pub fn extract_git_head: (args :vec[str] dest :&str) :str {
 
 pub fn extract_install_status: (output :&str) :bool {
     // Check if install was successful by looking for error patterns
-    set has_error = strings::contains(output "Permission denied") ||
-                     strings::contains(output "No such file")
-    return !has_error
+    if strings::index(output "Permission denied") >= 0 { return false }
+    if strings::index(output "No such file") >= 0 { return false }
+    return true
 }
 
 /! Filesystem operations !/
@@ -327,7 +351,7 @@ pub fn owl_version: () :str {
 
 pub fn compiler_version: () :str {
     set ver = "" :str mut
-    set v = use! util::trim_command(use! util::compiler_cmd() ["--version"])
+    set v = proc::run::output(use! util::compiler_cmd() ["--version"])
     if v != "" {
         set ver = v
     } else {
@@ -385,14 +409,14 @@ pub fn compiler_cmd: () :str {
                 /! Priority: project-configured path > MIRE_HOME > owl-installed > cargo-installed
                    The cargo-installed binary is a build artifact, not a deployment target.
                    If no project config and no MIRE_HOME, fall back to "mire" which relies
-                   on the caller's PATH being set up by the CI/workflow, not by end users.
+                   on the caller's PATH being set up by the CI/workflow, not by end users. !/
                 set c1 = strings::concat(home "/.cargo/bin/mire")
                 set c2 = strings::concat(home "/.local/bin/mire")
-                if fs::exists(c1) && fs::exists(home "/.owl") {
+                if fs::exists(c1) && fs::exists(strings::concat(home "/.owl")) {
                     /! Only use cargo-installed mire if owl is also installed (indicates
                        a development environment, not a production deployment). !/
                     set cmd = c1
-                } else if fs::exists(c2) && fs::exists(home "/.owl") {
+                } elif fs::exists(c2) && fs::exists(strings::concat(home "/.owl")) {
                     set cmd = c2
                 } else {
                     /! Portable CI fallback. proc::run::output performs a
@@ -450,7 +474,7 @@ pub fn config_required: (section :str key :str) :str {
    build policies like ``[build] runtime`` that must not hardcode
    avenys' fallback tier. !/
 pub fn config_default: (section :str key :str default :str) :str {
-    set val = default
+    set val = default :str mut
     if use! util::has_project() {
         set s = section
         set k = key
@@ -486,13 +510,13 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     use! util::mkdir_p(strings::copy(fs::path::dir(path)))
 
     // Read project metadata from owl.toml instead of hardcoding
-    set proj_name = use! util::toml_get("owl.toml" "project" "name")
+    set proj_name = use! util::toml_get("owl.toml" "project" "name") :str mut
     if proj_name == "" { set proj_name = "owl-managed" }
-    set proj_ver = use! util::toml_get("owl.toml" "project" "version")
+    set proj_ver = use! util::toml_get("owl.toml" "project" "version") :str mut
     if proj_ver == "" { set proj_ver = "1.0.0" }
-    set paths_source = use! util::toml_get("owl.toml" "paths" "source")
+    set paths_source = use! util::toml_get("owl.toml" "paths" "source") :str mut
     if paths_source == "" { set paths_source = "." }
-    set paths_test = use! util::toml_get("owl.toml" "paths" "test")
+    set paths_test = use! util::toml_get("owl.toml" "paths" "test") :str mut
     if paths_test == "" { set paths_test = "tests" }
 
     set config = "[project]\n" :str mut
@@ -519,7 +543,7 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     // Always add cfg section with defaults for new projects
     // Existing projects will have these values unless they manually configure
     set config = config + "lock = 1\n"
-    set config = config + "update@lock = \"Build\"\n"
+    set config = config + "\"update@lock\" = \"Build\"\n"
     // Package roots belong to Avenys' --lib-dir search path, not to native
     // linker `-l` entries. Owl's own archive bridge is the one exception: it
     // is a deliberate development-time C bridge to libarchive, not a Mire
@@ -538,8 +562,6 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     set config = config + "extern-libs = [\"c\"]\n"
     set config = config + "macros = [\"assert\", \"assert_eq\", \"assert_ne\", \"dbg\", \"trace_i64\"]\n"
     set config = config + "allow-unsafe = false\n"
-    set config = config + "lock = " + use! util::bool_to_i64(cfg_lock) + "\n"
-    set config = config + "update@lock = \"" + cfg_update_lock + "\"\n"
     fs::write(path config)
     return fs::exists(path)
 }
@@ -560,23 +582,28 @@ pub fn substr: (s :&str, start :i64, len :i64) :str { return strings::substr(s s
 pub fn replace: (s :&str, old :&str, new :&str) :str { return strings::replace::all(s old new) }
 pub fn list_get: (list :&vec[str], index :i64) :str { return vec::get::str(list index) }
 
-/! Returns the hex SHA-256 of a file by running `sha256sum <path>` with an
-   argv vector (path is never interpolated into a shell command line).
-   Returns "" on any failure.
-!/
+pub fn path_exists: (path :&str) :bool { return fs::exists(path) }
+pub fn copy_value: (value :&str) :str { return strings::copy(value) }
+pub fn trim_value: (value :str) :str { return strings::trim(value) }
+pub fn str_equals: (a :&str, b :&str) :bool { return a == b }
+pub fn read_line_trim: () :str { return strings::trim(proc::run::read_line()) }
+pub fn trim_substr: (s :&str, start :i64, length :i64) :str { return strings::trim(strings::substr(s start length)) }
+pub fn substr_i64: (s :&str, start :i64, length :i64) :i64 { return use! util::string_to_i64(strings::substr(s start length)) }
+
+/! Returns the lowercase-hex SHA-256 of a file. The digest is computed by
+   kioto's binary-safe runtime binding (embedded NULs preserved, no shell, no
+   temp files). Returns "" on any failure. !/
 pub fn sha256sum_hex: (path :&str) :str {
     if !fs::exists(path) { return "" }
-    set content = fs::read(path)
-    return use! crypto::hash::sha256(content)
+    return use! kioto::crypto::hash::sha256_file(path)
 }
 
-/! Computes SHA-512 locally for registry verification. The registry may
-   publish either SHA-256 or SHA-512; Owl computes the declared algorithm
-   itself and never trusts a hash copied from publish.toml. !/
+/! Returns the lowercase-hex SHA-512 of a file. The registry may publish
+   either SHA-256 or SHA-512; Owl computes the declared algorithm itself and
+   never trusts a hash copied from publish.toml. !/
 pub fn sha512sum_hex: (path :&str) :str {
     if !fs::exists(path) { return "" }
-    set content = fs::read(path)
-    return use! crypto::hash::sha512(content)
+    return use! kioto::crypto::hash::sha512_file(path)
 }
 
 /! Returns true if any .mire under code/ or tests/ contains a

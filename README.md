@@ -1,4 +1,4 @@
-# Owl v1.0.0
+# Owl v1.1.0
 
 Package and project manager for the [Mire](https://github.com/mire-lang) (Avenys) language.
 Written in Mire, compiled by Avenys.
@@ -229,8 +229,8 @@ bin = "bin/debug"
 cache = "bin/.cache"
 generated = "bin/generated"
 
-[deps]
-kioto = { path = "~/.owl/libs/kioto", version = "2.4.7" }
+[dependencies]
+kioto = { path = "~/.owl/libs/kioto", version = "2.4.9" }
 
 [cfg]
 publisher = "publish.toml"

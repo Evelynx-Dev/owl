@@ -120,124 +120,56 @@ set grep_pattern = "^name = \"" + pkg_name + "\""
                 set glines = strings::split(idx_content "\n")
                 set gnl = len(glines)
                 set gi = 0 :i64 mut
-                while gi < gnl && !found_name_match {
+                set found_tarball = "" :str mut
+                set found_sha = "" :str mut
+                set found_sha512 = "" :str mut
+                set found_method = "" :str mut
+                set found_repo = "" :str mut
+                set found_tag = "" :str mut
+                set found_asset = "" :str mut
+                set found_ref = "" :str mut
+                set found_commit = "" :str mut
+                set in_pkg = false :bool mut
+                while gi < gnl {
                     set gline = use! util::trim(use! util::list_get(glines gi))
-                    if use! util::startswith(gline "name =") {
-                        set after = strings::substr(gline 6 9999) :str mut
+                    set eq = strings::index(gline "=")
+                    if eq > 0 {
+                        set after = strings::substr(gline eq + 1 9999) :str mut
                         set after = use! util::trim(after)
                         if use! util::startswith(after "\"") && use! util::endswith(after "\"") {
                             set after = strings::substr(after 1 strings::len(after) - 2)
                         } else {
                             if use! util::startswith(after "\"") { set after = strings::substr(after 1 9999) }
                         }
-                        if after == pkg_name { set found_name_match = true }
+                        if use! util::startswith(gline "name = ") {
+                            if after == pkg_name {
+                                set in_pkg = true
+                                set found_name_match = true
+                            } else {
+                                set in_pkg = false
+                            }
+                        }
+                        if in_pkg {
+                            if use! util::startswith(gline "tarball = ") { set found_tarball = after }
+                            if use! util::startswith(gline "sha256 = ") { set found_sha = after }
+                            if use! util::startswith(gline "sha512 = ") { set found_sha512 = after }
+                            if use! util::startswith(gline "method = ") { set found_method = after }
+                            if use! util::startswith(gline "repo = ") { set found_repo = after }
+                            if use! util::startswith(gline "tag = ") { set found_tag = after }
+                            if use! util::startswith(gline "asset = ") { set found_asset = after }
+                            if use! util::startswith(gline "ref = ") { set found_ref = after }
+                            if use! util::startswith(gline "commit = ") { set found_commit = after }
+                        }
                     }
                     set gi += 1
                 }
-                if !found_name_match {
-                    set gi = 0 :i64 mut
-                    while gi < gnl {
-                        set gline = use! util::trim(use! util::list_get(glines gi))
-                        set eq = strings::index(gline "=")
-                        if eq > 0 {
-                            set after = strings::substr(gline eq + 1 9999) :str mut
-                            set after = use! util::trim(after)
-                            if use! util::startswith(after "\"") && use! util::endswith(after "\"") {
-                                set after = strings::substr(after 1 strings::len(after) - 2)
-                            } else {
-                                if use! util::startswith(after "\"") { set after = strings::substr(after 1 9999) }
-                            }
-                            if use! util::startswith(gline "tarball = ") {
-                                set found_tarball = after
-                            }
-                            if use! util::startswith(gline "sha256 = ") {
-                                set found_sha = after
-                            }
-                            if use! util::startswith(gline "sha512 = ") {
-                                set found_sha512 = after
-                            }
-                            if use! util::startswith(gline "method = ") {
-                                set found_method = after
-                            }
-                            if use! util::startswith(gline "repo = ") {
-                                set found_repo = after
-                            }
-                            if use! util::startswith(gline "tag = ") {
-                                set found_tag = after
-                            }
-                            if use! util::startswith(gline "asset = ") {
-                                set found_asset = after
-                            }
-                            if use! util::startswith(gline "ref = ") {
-                                set found_ref = after
-                            }
-                            if use! util::startswith(gline "commit = ") {
-                                set found_commit = after
-                            }
-                        }
-                        set gi += 1
-                    }
+                if found_tarball != "" || found_method == "clone" || found_repo != "" {
+                    set pkg_info = found_tarball + "|" + found_sha + "|" + found_sha512 + "|" + reg_name + "|" + found_method + "|" + found_repo + "|" + found_tag + "|" + found_asset + "|" + found_ref + "|" + found_commit
                 }
-                    set gnl = len(glines)
-                    set gi = 0 :i64 mut
-                    set found_tarball = "" :str mut
-                    set found_sha = "" :str mut
-                    set found_sha512 = "" :str mut
-                    set found_method = "" :str mut
-                    set found_repo = "" :str mut
-                    set found_tag = "" :str mut
-                    set found_asset = "" :str mut
-                    set found_ref = "" :str mut
-                    set found_commit = "" :str mut
-                    while gi < gnl {
-                        set gline = use! util::trim(use! util::list_get(glines gi))
-                        set eq = strings::index(gline "=")
-                        if eq > 0 {
-                            set after = strings::substr(gline eq + 1 9999) :str mut
-                            set after = use! util::trim(after)
-                            if use! util::startswith(after "\"") && use! util::endswith(after "\"") {
-                                set after = strings::substr(after 1 strings::len(after) - 2)
-                            } else {
-                                if use! util::startswith(after "\"") { set after = strings::substr(after 1 9999) }
-                            }
-                            if use! util::startswith(gline "tarball = ") {
-                                set found_tarball = after
-                            }
-                            if use! util::startswith(gline "sha256 = ") {
-                                set found_sha = after
-                            }
-                            if use! util::startswith(gline "sha512 = ") {
-                                set found_sha512 = after
-                            }
-                            if use! util::startswith(gline "method = ") {
-                                set found_method = after
-                            }
-                            if use! util::startswith(gline "repo = ") {
-                                set found_repo = after
-                            }
-                            if use! util::startswith(gline "tag = ") {
-                                set found_tag = after
-                            }
-                            if use! util::startswith(gline "asset = ") {
-                                set found_asset = after
-                            }
-                            if use! util::startswith(gline "ref = ") {
-                                set found_ref = after
-                            }
-                            if use! util::startswith(gline "commit = ") {
-                                set found_commit = after
-                            }
-                        }
-                        set gi += 1
-                    }
-                    if found_tarball != "" || found_method == "clone" || found_repo != "" {
-                        set pkg_info = found_tarball + "|" + found_sha + "|" + found_sha512 + "|" + reg_name + "|" + found_method + "|" + found_repo + "|" + found_tag + "|" + found_asset + "|" + found_ref + "|" + found_commit
-                    }
                 }
             }
             set i_reg += 1
         }
-    }
 
     if ec == 0 && pkg_info == "" {
         use dasu("  error: could not find package \"" + pkg_name + "\" in any registry")

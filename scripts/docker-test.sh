@@ -43,7 +43,7 @@ docker run --rm \
     /tmp/avenys-target/release/mire --version
     /tmp/avenys-target/release/mire test tests -j 8 --release --log --lib-dir /owl-libs --cache-dir /tmp/avenys-tests-cache
     cd /src/owl
-    /tmp/avenys-target/release/mire build code/main.mire --release --artifact bin --runtime minimal --lib-dir /owl-libs --cache-dir /tmp/owl-cache --output /tmp/owl
+    /tmp/avenys-target/release/mire build code/main.mire --config native/mire-config.toml --release --artifact bin --runtime minimal --lib-dir /owl-libs --cache-dir /tmp/owl-cache --output /tmp/owl
     /tmp/owl --version
     /tmp/owl --help >/tmp/owl-help.txt
     /tmp/owl check

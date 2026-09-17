@@ -207,7 +207,7 @@ pub fn checkup: (args :&vec[str]) {
 /! Check compiler installation !/
 fn checkup_compiler: () :bool {
     set ok = true :bool mut
-    set compiler_out = use! util::trim_command(use! util::compiler_cmd() ["--version"])
+    set compiler_out = proc::run::output(use! util::compiler_cmd() ["--version"])
     if compiler_out == "" {
         use dasu("  [FAIL] compiler: mire not found")
         use dasu("         install mire (Avenys) to compile projects")
@@ -383,7 +383,7 @@ fn checkup_deps: () :bool {
                             set local_find_args = vec::push::str(local_find_args strings::copy(dp_find))
                             set local_find_args = vec::push::str(local_find_args "-name")
                             set local_find_args = vec::push::str(local_find_args "*.mire")
-                            set local_mire_files = use! util::trim_command("find" local_find_args)
+                            set local_mire_files = proc::run::output("find" local_find_args)
                             if len(local_mire_files) > 0 {
                                 use dasu("  [OK]   deps/" + pkg + " -> local source " + dp_msg)
                                 set loadable += 1
@@ -406,7 +406,7 @@ fn checkup_deps: () :bool {
                             set find_args = vec::push::str(find_args strings::copy(dp_find))
                             set find_args = vec::push::str(find_args "-name")
                             set find_args = vec::push::str(find_args "*.mire")
-                            set mire_files = use! util::trim_command("find" find_args)
+                            set mire_files = proc::run::output("find" find_args)
                             set mire_count = len(use! util::split(mire_files "\n"))
                             if mire_count == 0 {
                                 use dasu("  [FAIL] deps/" + pkg + ": no .mire files (cannot be loaded)")
@@ -517,7 +517,7 @@ fn checkup_cache: () :bool {
     set find_args1 = vec::push::str(find_args1 strings::copy(cache_dir))
     set find_args1 = vec::push::str(find_args1 "-type")
     set find_args1 = vec::push::str(find_args1 "f")
-    set file_listing1 = use! util::trim_command("find" find_args1)
+    set file_listing1 = proc::run::output("find" find_args1)
     set file_count = len(use! util::split(file_listing1 "\n"))
 
     if file_count == 0 {
@@ -530,7 +530,7 @@ fn checkup_cache: () :bool {
     set find_args2 = vec::push::str(find_args2 "-type")
     set find_args2 = vec::push::str(find_args2 "f")
     set find_args2 = vec::push::str(find_args2 "-empty")
-    set file_listing2 = use! util::trim_command("find" find_args2)
+    set file_listing2 = proc::run::output("find" find_args2)
     set empty_count = len(use! util::split(file_listing2 "\n"))
 
     if empty_count != 0 {
@@ -548,7 +548,7 @@ fn checkup_cache: () :bool {
         set find_args3 = vec::push::str(find_args3 "*.mire")
         set find_args3 = vec::push::str(find_args3 "-newer")
         set find_args3 = vec::push::str(find_args3 strings::copy(cache_dir))
-    set file_listing3 = use! util::trim_command("find" find_args3)
+    set file_listing3 = proc::run::output("find" find_args3)
     set stale_count = len(use! util::split(file_listing3 "\n"))
 
         if stale_count != 0 {

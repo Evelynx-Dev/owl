@@ -200,9 +200,9 @@ build_owl() {
   local mire="$MIRE_BIN"
   local owl_home="$1/libs"
 
-  (cd "$src" && "$mire" build code/main.mire --release --artifact bin \
-    --runtime minimal --lib-dir "$owl_home" --cache-dir "$src/bin/.cache" \
-    --output "$src/owl" 2>&1)
+  (cd "$src" && "$mire" build code/main.mire --config native/mire-config.toml \
+    --release --artifact bin --runtime minimal --lib-dir "$owl_home" \
+    --cache-dir "$src/bin/.cache" --output "$src/owl" 2>&1)
 
   local binary="$src/owl"
   if [[ ! -f "$binary" ]]; then

@@ -6,8 +6,6 @@ extern fn error_line: (code :str) :i64
 extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
 
 pub fn run: (args :&vec[str]) :i64 {
-    use dasu("DEBUG cfg run called")
-
     set project = "" :str mut
     set lock_val = "" :str mut
     set update_val = "" :str mut
@@ -21,10 +19,10 @@ pub fn run: (args :&vec[str]) :i64 {
         if use! util::startswith(arg "--lock") && i + 1 < n {
             set lock_val = rt_vec_get_str(args i + 1)
             set i += 2
-        } else if use! util::startswith(arg "--update") && i + 1 < n {
+        } elif use! util::startswith(arg "--update") && i + 1 < n {
             set update_val = rt_vec_get_str(args i + 1)
             set i += 2
-        } else if use! util::startswith(arg "--project") && i + 1 < n {
+        } elif use! util::startswith(arg "--project") && i + 1 < n {
             set project = rt_vec_get_str(args i + 1)
             set i += 2
         } else {
@@ -48,19 +46,20 @@ pub fn run: (args :&vec[str]) :i64 {
 
     /! Validate lock value
     if lock_val != "" {
-        if use! util::startswith(lock_val "0") { set lock_val = "0" }
-        else if use! util::startswith(lock_val "1") { set lock_val = "1" }
-        else { use dasu("Error: invalid lock value '" + lock_val + "'"); return 1 }
+        if use! util::startswith(lock_val "0") { set lock_val = "0" } elif use! util::startswith(lock_val "1") { set lock_val = "1" } else {
+            use dasu("Error: invalid lock value '" + lock_val + "'")
+            return 1
+        }
     } else {
         set lock_val = "1" /! Default
     }
 
     /! Validate update@lock value
     if update_val != "" {
-        if use! util::startswith(update_val "Build") { }
-        else if use! util::startswith(update_val "Changes") { }
-        else if use! util::startswith(update_val "None") { }
-        else { use dasu("Error: invalid update@lock value '" + update_val + "'"); return 1 }
+        if use! util::startswith(update_val "Build") { } elif use! util::startswith(update_val "Changes") { } elif use! util::startswith(update_val "None") { } else {
+            use dasu("Error: invalid update@lock value '" + update_val + "'")
+            return 1
+        }
     } else {
         set update_val = "Build" /! Default
     }

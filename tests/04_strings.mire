@@ -53,7 +53,7 @@ pub fn main: () {
     testlib.assert_eq_str("a,b,c" joined)
     use dasu("  strings.join: ok")
 
-    testlib.assert_eq_str("hello!" strings::replace("hello?" "?" "!"))
+    testlib.assert_eq_str("hello!" strings::replace::all("hello?" "?" "!"))
     use dasu("  strings.replace: ok")
 
     testlib.assert_eq_str("abab" strings::repeat("ab" 2))

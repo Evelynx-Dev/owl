@@ -81,10 +81,10 @@ pub fn in_sync: () :bool {
                                 set dn3 = strings::copy(dep_name)
                                 set dn4 = strings::copy(dep_name)
                                 set tv = use! deps::get_dep_field(dn1 "version")
-                                set lv = use! lockfile::field(dn2 "version")
+                                set lv = use! lockfile::get_field(dn2 "version")
                                 if tv != "" && lv != "" && tv != lv { set found = false }
                                 set tp = use! deps::get_dep_field(dn3 "path")
-                                set lp = use! lockfile::field(dn4 "path")
+                                set lp = use! lockfile::get_field(dn4 "path")
                                 if tp != "" && lp != "" && tp != lp { set found = false }
                             }
                             if !found { set ok = false }
@@ -163,7 +163,7 @@ pub fn generate: () :bool {
     set dep_count = use! deps::count_deps()
 
     // Determine lockfile version - default to V3
-    set lock_version = use! util::toml_get("owl.toml" "owl@lock" "version")
+    set lock_version = use! util::toml_get("owl.toml" "owl@lock" "version") :str mut
     if lock_version == "" {
         set lock_version = "3"
         use! util::toml_set("owl.toml" "owl@lock" "version" "3")
@@ -269,41 +269,17 @@ pub fn generate: () :bool {
                             if rname != "" {
                                 set idx_path = reg_dir + "/" + rname + "/index.toml"
                                 if fs::exists(idx_path) {
-set pattern = "^name = \"" + dep_name + "\""
-                set found_name_match = false :bool mut
-                set reg_list = strings::split(reg_list "\n")
-                set rlen = len(reg_list)
-                set ri = 0 :i64 mut
-                while ri < rlen && !found_name_match {
-                    set rline = use! util::trim(use! util::list_get(reg_list ri))
-                    if use! util::startswith(rline "name =") {
-                        set after = strings::substr(rline 6 9999) :str mut
-                        set after = use! util::trim(after)
-                        if use! util::startswith(after "\"") && use! util::endswith(after "\"") {
-                            set after = strings::substr(after 1 strings::len(after) - 2)
-                        } else {
-                            if use! util::startswith(after "\"") { set after = strings::substr(after 1 9999) }
-                        }
-                        if after == dep_name { set found_name_match = true }
-                    }
-                    set ri += 1
-                }
-                if !found_name_match {
-                    set ri = 0 :i64 mut
-                    while ri < rlen {
-                        set rline = use! util::trim(use! util::list_get(reg_list ri))
-                        set eq = strings::index(rline "=")
-                        if rline != "" {
-                            if use! util::startswith(rline "tarball = ") {
-                                set found_tarball = strings::trim(strings::substr(rline 10 9999))
-                            }
-                            if use! util::startswith(rline "sha256 = ") {
-                                set found_sha = strings::trim(strings::substr(rline 9 9999))
+                                    set idx_content = fs::read(idx_path)
+                                    set dep_copy = strings::copy(dep_name)
+                                    set needle = "name = \"" + dep_copy + "\""
+                                    if strings::index(idx_content needle) >= 0 {
+                                        set registry = rname
+                                        set resolved = true
+                                    }
+                                }
                             }
                         }
-                        set ri += 1
                     }
-                }
                     if registry == "" { set registry = "local" }
 
                     set compiler = "" :str mut
@@ -480,7 +456,7 @@ pub fn validate: () :bool {
 /! Get a specific field from a lockfile package entry by name.
    Fields: "version", "path", "registry", "abi"
 !/
-pub fn field: (pkg_name :str field_name :str) :str {
+pub fn get_field: (pkg_name :str field_name :str) :str {
     set val = "" :str mut
     if !use! lockfile::exists() { return val }
 
@@ -624,69 +600,37 @@ fn install_one: (pkg_name :str pkg_ver :str registry_name :str) {
         return
     }
 
-    set pattern = "^name = \"" + pkg_name + "\""
-    set pattern = "^name = \"" + pkg_name + "\""
-                set found_name_match = false :bool mut
-                set glines = strings::split(idx_content "\n")
-                set gnl = len(glines)
-                set gi = 0 :i64 mut
-                while gi < gnl && !found_name_match {
-                    set gline = use! util::trim(use! util::list_get(glines gi))
-                    if use! util::startswith(gline "name =") {
-                        set after = strings::substr(gline 6 9999) :str mut
-                        set after = use! util::trim(after)
-                        if use! util::startswith(after "\"") && use! util::endswith(after "\"") {
-                            set after = strings::substr(after 1 strings::len(after) - 2)
-                        } else {
-                            if use! util::startswith(after "\"") { set after = strings::substr(after 1 9999) }
-                        }
-                        if after == pkg_name { set found_name_match = true }
-                    }
-                    set gi += 1
-                }
-
-    if !found_name_match {
-        use dasu("  [FAIL] " + pkg_name + ": not found in registry '" + registry_name + "'")
-        return
-    }
-        use dasu("  [FAIL] " + pkg_name + ": not found in registry '" + registry_name + "'")
-        return
-    }
-
-    /! Parse `tarball = "..."` and `sha256 = "..."` from the grep block
-       with string ops (no sed). !/
+    set idx_content = fs::read(idx_path)
+    set glines = strings::split(idx_content "\n")
+    set gnl = len(glines)
+    set gi = 0 :i64 mut
+    set in_pkg = false :bool mut
     set tarball_line = "" :str mut
     set sha256_line = "" :str mut
-    set glines = strings::split(grep_out "\n")
-    set gi = 0 :i64 mut
-    set gn = len(glines)
-    while gi < gn {
+    while gi < gnl {
         set gline = use! util::trim(use! util::list_get(glines gi))
-        set tb_idx = strings::index(gline "tarball")
-        if tb_idx >= 0 {
-            set eq = strings::index(gline "=")
-            if eq >= 0 {
-                set after = strings::substr(gline eq + 1 9999) :str mut
-                set after = use! util::trim(after)
-                if use! util::startswith(after "\"") { set after = use! util::replace(after "\"" "") }
-                set tarball_line = after
+        set eq = strings::index(gline "=")
+        if eq > 0 {
+            set after = strings::substr(gline eq + 1 9999) :str mut
+            set after = use! util::trim(after)
+            if use! util::startswith(after "\"") && use! util::endswith(after "\"") {
+                set after = strings::substr(after 1 strings::len(after) - 2)
+            } else {
+                if use! util::startswith(after "\"") { set after = strings::substr(after 1 9999) }
             }
-        }
-        set sh_idx = strings::index(gline "sha256")
-        if sh_idx >= 0 {
-            set eq = strings::index(gline "=")
-            if eq >= 0 {
-                set after = strings::substr(gline eq + 1 9999) :str mut
-                set after = use! util::trim(after)
-                if use! util::startswith(after "\"") { set after = use! util::replace(after "\"" "") }
-                set sha256_line = after
+            if use! util::startswith(gline "name = ") {
+                if after == pkg_name { set in_pkg = true } else { set in_pkg = false }
+            }
+            if in_pkg {
+                if use! util::startswith(gline "tarball = ") { set tarball_line = after }
+                if use! util::startswith(gline "sha256 = ") { set sha256_line = after }
             }
         }
         set gi += 1
     }
 
     if tarball_line == "" {
-        use dasu("  [FAIL] " + pkg_name + ": no tarball in registry index")
+        use dasu("  [FAIL] " + pkg_name + ": not found in registry '" + registry_name + "'")
         return
     }
 
@@ -772,60 +716,35 @@ fn install_one: (pkg_name :str pkg_ver :str registry_name :str) {
     use dasu("  [OK]   installed " + pkg_name + " v" + pkg_ver)
 }
 
-pub fn sha512sum_hex: (content :str) :str {
-    set result = "" :str mut
-    set binary = use! util::sha512(content) :str mut
-    if binary != "" {
-        set hex_len = len(binary) * 2
-        set hex_str = "" :str mut
-        set pos = 0 :i64 mut
-        while pos < hex_len {
-            set ch = strings::substr(binary pos 1) :str mut
-            set hex_val = use! util::hex_table_lookup(ch) :str mut
-            if hex_val != "" {
-                set hex_str = hex_str + hex_val
-            }
-            set pos += 1
-        }
-        set result = use! util::trim(hex_str)
-    }
-    return result
-}
+/! Returns the SHA-512 of an installed package's `meta.toml`, kept in the shared
+   checksum store at `~/.owl/cache/lockfile_checksums` under the key
+   `<pkg>@<version>`. The digest is generated and persisted on first use; later
+   calls verify the installed manifest has not changed. Returns "" when the
+   package is not installed or hashing fails. !/
+pub fn dependency_checksum: (pkg_name :str, installed_version :str) :str {
+    set key = pkg_name + "@" + installed_version
+    set store = use! util::expand_home("~/.owl/cache/lockfile_checksums")
+    set meta_path = use! util::expand_home("~/.owl/libs/" + pkg_name + "/meta.toml")
+    if !fs::exists(meta_path) { return "" }
 
-pub fn dependency_checksum: (pkg_name :str installed_version :str) :str {
-    set expected "" :str mut
-    set checksum_path = "~/.owl/cache/lockfile_checksums" :str mut
-    if fs::exists(checksum_path) {
-        set content = fs::read(checksum_path)
-        set idx = strings::index(content pkg_name)
-        if idx >= 0 {
-            set after = strings::substr(content idx 9999)
-            set nl = strings::index(after "\n")
-            set end = 0 :i64 mut
-            if nl >= 0 { set end = idx + nl } else { set end = idx + len(after) }
-            set expected = strings::substr(after 0 end - idx)
-            set expected = use! util::trim(expected)
-        }
-    }
+    set expected = use! kioto::crypto::checksum::store_get(store key)
+    set actual = use! kioto::crypto::checksum::file(meta_path)
+
     if expected != "" {
-        if use! util::str_equals(expected installed_version) {
-            use dasu("  [OK]   " + pkg_name + "@" + installed_version + ": checksum verificada")
+        if expected == actual {
+            use dasu("  [OK]   " + key + ": checksum verificado")
             return expected
-        } else {
-            use dasu("  [WARN] " + pkg_name + "@" + installed_version + ": checksum no coincide (esperado: " + expected + ", instalado: " + installed_version + ")")
         }
+        use dasu("  [WARN] " + key + ": checksum no coincide (esperado: " + expected + ", actual: " + actual + ")")
     } else {
-        use dasu("  [INFO] " + pkg_name + ": no hay checksum guardado, generando...")
+        use dasu("  [INFO] " + key + ": generando checksum...")
     }
-    set new_checksum = use! util::sha512sum_hex(installed_version)
-    if new_checksum != "" {
-        set append_ok = use! util::file_append(checksum_path pkg_name + " = " + new_checksum + "\n")
-        if append_ok {
-            use dasu("  [OK]   checksum guardado para " + pkg_name + "@" + installed_version)
-        }
-        return new_checksum
-    }
-    return ""
+
+    if actual == "" { return "" }
+    use! util::mkdir_p(use! util::expand_home("~/.owl/cache"))
+    use! kioto::crypto::checksum::store_put(store key actual)
+    use dasu("  [OK]   checksum guardado para " + key)
+    return actual
 }
 
 pub fn exports_verified: (pkg_name :str) :bool {
@@ -857,21 +776,21 @@ pub fn exports_verified: (pkg_name :str) :bool {
 }
 
 pub fn lockfile_status: (owl_config_lock :bool cfg_update_lock :str) :str {
-    set update_mode cfg_update_lock :str mut
+    set update_mode = cfg_update_lock :str mut
     if cfg_update_lock == "Build" {
-        update_mode = "always en build"
-    } else if cfg_update_lock == "Changes" {
-        update_mode = "solo cuando hay cambios en owl.toml o loads"
+        set update_mode = "always en build"
+    } elif cfg_update_lock == "Changes" {
+        set update_mode = "solo cuando hay cambios en owl.toml o loads"
     } else {
-        update_mode = "never (modo none)"
+        set update_mode = "never (modo none)"
     }
-    set status "lockfile V3 status: lock=" + use! util::i64_to_string(owl_config_lock) + " update@lock=" + update_mode
+    set lock_i = 0 :i64 mut
+    if owl_config_lock { set lock_i = 1 }
+    set status = "lockfile V3 status: lock=" + use! util::i64_to_string(lock_i) + " update@lock=" + update_mode :str mut
     if owl_config_lock {
-        status = status + " (active) - lockfile V3 generará checksum sha512"
+        set status = status + " (active) - lockfile V3 generará checksum sha512"
     } else {
-        status = status + " (inactive) - lockfile se generará con formato por defecto"
+        set status = status + " (inactive) - lockfile se generará con formato por defecto"
     }
     return status
-}
-
 }

@@ -95,68 +95,60 @@ pub fn run: (args :&vec[str]) {
                          }
 
                          if proceed {
-set b64_args = [] :vec[str] mut
-    set b64_args = vec::push::str(b64_args strings::copy(pub_key))
-    set pubkey_b64 = use! kioto::crypto::encode::base64::encode(vec::from_str(pub_key))
-                             set sig_tmp = use! crypto::tempdir("owl-sig")
-                             if sig_tmp != "" {
-                                 set sig_in = sig_tmp + "/sig.b64"
-                                 use fs::write(sig_in pubkey_b64)
-                                 set bd_args = [] :vec[str] mut
-                                 set bd_args = vec::push::str(bd_args "-d")
-                                 set bd_args = vec::push::str(bd_args "-i")
-                                 set bd_args = vec::push::str(bd_args strings::copy(sig_in))
-                                 set bd_args = vec::push::str(bd_args strings::copy(sig_file))
-                                 use proc::run::output("base64" bd_args)
-                                 set rm_sig = [] :vec[str] mut
-                                 set rm_sig = vec::push::str(rm_sig "-rf")
-                                 set rm_sig = vec::push::str(rm_sig strings::copy(sig_tmp))
-                                 use proc::run::output("rm" rm_sig)
-                                 set cp_args = [] :vec[str] mut
-                                 set cp_args = vec::push::str(cp_args strings::copy(pub_key))
-                                 set cp_args = vec::push::str(cp_args strings::copy(pub_file))
-                                 use proc::run::output("cp" cp_args)
+                             /! Raw 32-byte public key (base64), as the registry
+                                manifests use. Decoded from the PEM by kioto. !/
+                             set pubkey_b64 = use! kioto::crypto::sign::ed25519::public::raw_b64_from_pem(pub_key)
+                             if pubkey_b64 == "" {
+                                 use dasu("  error: failed to read public key " + pub_key)
+                                 set proceed = false
                              }
 
                              if proceed {
-                                 set sig_tmp = use! crypto::tempdir("owl-sig")
-                                 if sig_tmp != "" {
-                                     set sig_in = sig_tmp + "/sig.b64"
-                                     use fs::write(sig_in sig_b64)
-                                     set bd_args = [] :vec[str] mut
-                                     set bd_args = vec::push::str(bd_args "-d")
-                                     set bd_args = vec::push::str(bd_args "-i")
-                                     set bd_args = vec::push::str(bd_args strings::copy(sig_in))
-                                     set bd_args = vec::push::str(bd_args "-o")
-                                     set bd_args = vec::push::str(bd_args strings::copy(sig_file))
-                                     use proc::run::output("base64" bd_args)
-                                     set rm_sig = [] :vec[str] mut
-                                     set rm_sig = vec::push::str(rm_sig "-rf")
-                                     set rm_sig = vec::push::str(rm_sig strings::copy(sig_tmp))
-                                     use proc::run::output("rm" rm_sig)
+                                 /! Sign the archive with the Ed25519 private key
+                                    through openssl (argv vector, no shell). !/
+                                 set sign_args = [] :vec[str] mut
+                                 set sign_args = vec::push::str(sign_args "pkeyutl")
+                                 set sign_args = vec::push::str(sign_args "-sign")
+                                 set sign_args = vec::push::str(sign_args "-inkey")
+                                 set sign_args = vec::push::str(sign_args strings::copy(priv_key))
+                                 set sign_args = vec::push::str(sign_args "-rawin")
+                                 set sign_args = vec::push::str(sign_args "-in")
+                                 set sign_args = vec::push::str(sign_args strings::copy(archive))
+                                 set sign_args = vec::push::str(sign_args "-out")
+                                 set sign_args = vec::push::str(sign_args strings::copy(sig_file))
+                                 use proc::run::output("openssl" sign_args)
+
+                                 set sig_b64 = "" :str mut
+                                 if fs::exists(sig_file) {
+                                     set sig_b64 = use! kioto::crypto::encode::base64::encode_file(sig_file)
                                  }
-                                 set cp_args = [] :vec[str] mut
-                                 set cp_args = vec::push::str(cp_args strings::copy(pub_key))
-                                 set cp_args = vec::push::str(cp_args strings::copy(pub_file))
-                                 use proc::run::output("cp" cp_args)
+                                 if sig_b64 == "" {
+                                     use dasu("  error: failed to sign archive (openssl required)")
+                                     set proceed = false
+                                 }
 
-                                set publish = "[package]\n" :str mut
-                                set publish = publish + "name = \"" + name + "\"\n"
-                                set publish = publish + "version = \"" + ver + "\"\n"
-                                set publish = publish + "archive = \"" + archive + "\"\n"
-                                set publish = publish + "sha256 = \"" + hash + "\"\n"
-                                if pubkey_b64 != "" {
-                                    set publish = publish + "public-key = \"" + pubkey_b64 + "\"\n"
-                                }
-                                set publish = publish + "signature = \"" + sig_b64 + "\"\n"
-                                use fs::write("publish.toml" publish)
+                                 if proceed {
+                                     set cp_args = [] :vec[str] mut
+                                     set cp_args = vec::push::str(cp_args strings::copy(pub_key))
+                                     set cp_args = vec::push::str(cp_args strings::copy(pub_file))
+                                     use proc::run::output("cp" cp_args)
 
-                                use dasu("  created " + archive)
-                                use dasu("  created " + sig_file)
-                                use dasu("  created publish.toml")
-                                use dasu("  done")
-                            }
-                        }
+                                     set publish = "[package]\n" :str mut
+                                     set publish = publish + "name = \"" + name + "\"\n"
+                                     set publish = publish + "version = \"" + ver + "\"\n"
+                                     set publish = publish + "archive = \"" + archive + "\"\n"
+                                     set publish = publish + "sha256 = \"" + hash + "\"\n"
+                                     set publish = publish + "public-key = \"" + pubkey_b64 + "\"\n"
+                                     set publish = publish + "signature = \"" + sig_b64 + "\"\n"
+                                     use fs::write("publish.toml" publish)
+
+                                     use dasu("  created " + archive)
+                                     use dasu("  created " + sig_file)
+                                     use dasu("  created publish.toml")
+                                     use dasu("  done")
+                                 }
+                             }
+                         }
                     }
 
                     if proceed && dry_run {

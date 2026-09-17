@@ -26,6 +26,18 @@
 - Checks installed package's meta.toml for exports field
 - Issues warnings for mismatches or missing format
 
+### Heavy logic delegated to Kioto
+- `code/crypto` is now a thin layer: SHA-256/SHA-512 and Ed25519
+  verification call `kioto::crypto` directly (no `openssl`, no temp files, no
+  shell). `owl::crypto::verify::ed25519` uses
+  `kioto::crypto::sign::ed25519::public::verify_b64`, with new `sigfile` and
+  `pemfile` variants backed by `verify_file` / `raw_b64_from_pem`.
+- Lockfile checksums use `kioto::crypto::hash` and
+  `kioto::crypto::encode::base64` instead of reimplementing them in Owl.
+- Registry signature verification and base64 decoding are handled by Kioto's
+  binary-safe file helpers, removing the last `openssl base64 -d`/`pkeyutl`
+  subprocess paths from Owl.
+
 ### Documentation Reorganization
 - Docs moved to `owl/docs/` following Mire Documentation Standard
 - Each topic has its own subdirectory: `Cli/`, `Lockfile/`, `Reg/`, `Security/`

@@ -42,7 +42,7 @@ pub fn run: (args :&vec[str]) :i64 {
     set clone_args = vec::push::str(clone_args strings::copy(tmp_dir))
     set clone_out = use! proc::run::output("git" clone_args)
     set clone_ok = clone_out
-    if strings::contains(clone_ok "fatal") || strings::contains(clone_ok "error") {
+    if strings::index(clone_ok "fatal") >= 0 || strings::index(clone_ok "error") >= 0 {
         use dasu("error: git clone failed")
         use dasu(clone_ok)
         use! util::rm_RF(tmp_dir)
@@ -65,7 +65,7 @@ pub fn run: (args :&vec[str]) :i64 {
     set build_args = vec::push::str(build_args "code/main.mire")
     set build_args = vec::push::str(build_args "--release")
     set build_cwd = strings::copy(tmp_dir)
-    set build_out = use! util::trim_command_cwd("mire" build_args build_cwd true)
+    set build_out = proc::run::output_cwd("mire" build_args build_cwd true)
     if !fs::exists(new_bin) {
         use dasu("error: build failed")
         use dasu(build_out)
@@ -88,7 +88,7 @@ pub fn run: (args :&vec[str]) :i64 {
     set inst_args = vec::push::str(inst_args strings::copy(new_bin))
     set inst_args = vec::push::str(inst_args strings::copy(owl_bin))
     set inst_out = use! proc::run::output("install" inst_args)
-    set install_ok = util::extract_install_status(inst_out)
+    set install_ok = use! util::extract_install_status(inst_out)
     if !install_ok {
         use dasu("error: install failed - permission denied or path not found")
         use dasu("try running with sudo:")
