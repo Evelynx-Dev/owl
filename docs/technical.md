@@ -1,6 +1,6 @@
 # Owl Technical Notes
 
-## Architecture (v1.1.0)
+## Architecture (v1.1.1)
 
 ### CLI core
 - Entrypoint: `code/main.mire` (slim dispatcher)
@@ -89,7 +89,7 @@ Owl relies on compiler built-ins (not kioto imports):
 - `owl clean --bin` removes `bin/`
 - `owl clean --all` removes both plus `deps/` and `_test_harness.mire`
 
-### Current scope (v1.1.0)
+### Current scope (v1.1.1)
 - Project management: `new`, `run`, `build`, `test`, `clean`, `info`, `check`, `checkup`, `profile`
 - `checkup` validates all owl.toml fields, dependency count, and lockfile integrity
 - Package management: `load`, `install`, `install --lock`, `export`, `gc`, `upgrade`

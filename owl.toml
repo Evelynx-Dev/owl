@@ -1,6 +1,6 @@
 [project]
 name = "owl"
-version = "1.1.0"
+version = "1.1.1"
 description = "Package and project manager for the Mire (Avenys) language"
 entry = "code/main.mire"
 
@@ -50,3 +50,5 @@ upgrade = "code/upgrade"
 kioto = { path = "~/.owl/libs/kioto" }
 testlib = { path = "./testlib" }
 crypto = { path = "./code/crypto" }
+["owl@lock"]
+version = "3"

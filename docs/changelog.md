@@ -1,5 +1,18 @@
 # Owl Changelog
 
+## [1.1.1] - 2026-09-18
+
+### Fixed
+- **Project `[c]` forwarded to the compiler**: `owl build`/`owl run`/`owl test`
+  now forward a project's native C configuration (`[c] sources`, `[c] include`,
+  `[c] libs`, `[c] cflags`) into the normalized Mire config. Previously the
+  generated config hardcoded empty `sources`/`libs` (only the archive bridge),
+  so projects that ship their own `rt_*`/PAL helpers in C (e.g. token's
+  FreeType/SVG runtime) built but failed to link.
+- **New `[c]` utilities**: `toml_get_array`/`toml_array_literal` read `[c]`
+  arrays from `owl.toml`; `[c] include` directories are emitted as
+  `-I<dir>` `cflags` (Avenys' normalized config contract has no `include` key).
+
 ## [1.1.0] - 2026-09-16
 
 ### Lockfile V3 Automatic Generation

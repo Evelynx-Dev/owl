@@ -74,6 +74,69 @@ pub fn toml_get_from_string: (content :str section :str key :str) :str {
     return val
 }
 
+/! Reads a TOML array of strings (`key = ["a", "b"]`) from `[section]`.
+    Scalar-only `toml_get` cannot express native C sources/libs, so project
+    `[c]` entries are read with this helper. Returns an empty vector when the
+    key is missing or is not a bracketed array. !/
+pub fn toml_get_array: (file :str section :str key :str) :vec[str] {
+    set out = [] :vec[str] mut
+    if !fs::exists(file) { return out }
+    set content = fs::read(file)
+
+    set section_marker = "[" + section + "]" :str mut
+    set section_start = strings::index(content section_marker) :i64 mut
+    if section_start < 0 {
+        set section_marker = "[\"" + section + "\"]"
+        set section_start = strings::index(content section_marker)
+    }
+    if section_start < 0 { return out }
+
+    // Bound the search to the section body so a same-named key in another
+    // section cannot leak into this result.
+    set body_start = section_start + strings::len(section_marker)
+    set after_section = strings::substr(content body_start 9999)
+    set next_rel = strings::index(after_section "\n[")
+    set body = after_section :str mut
+    if next_rel >= 0 { set body = strings::substr(after_section 0 next_rel) }
+
+    set pos = strings::index(body key + " = [") :i64 mut
+    if pos < 0 { set pos = strings::index(body key + "=[") }
+    if pos < 0 { return out }
+    // Skip the opening bracket itself: locate the `[` after the key.
+    set bracket_rel = strings::index(strings::substr(body pos 9999) "[")
+    if bracket_rel < 0 { return out }
+    set tail_start = pos + bracket_rel + 1 :i64 mut
+    set arr_tail = strings::substr(body tail_start 9999)
+    set close = strings::index(arr_tail "]")
+    if close < 0 { return out }
+    set inner = strings::substr(arr_tail 0 close)
+    if strings::trim(inner) == "" { return out }
+
+    set parts = strings::split(inner ",")
+    set i = 0 :i64 mut
+    while i < vec::len(parts) {
+        set item = strings::trim(vec::get::str(parts i)) :str mut
+        if strings::starts::with(item "\"") && strings::ends::with(item "\"") {
+            set inner_len = strings::len(item) - 2 :i64 mut
+            set item = strings::substr(item 1 inner_len)
+        }
+        if item != "" { set out = vec::push::str(out item) }
+        set i += 1
+    }
+    return out
+}
+
+pub fn toml_array_literal: (items :&vec[str]) :str {
+    set out = "[" :str mut
+    set i = 0 :i64 mut
+    while i < vec::len(items) {
+        if i > 0 { set out = out + ", " }
+        set out = out + "\"" + vec::get::str(items i) + "\""
+        set i += 1
+    }
+    return out + "]"
+}
+
 /! Inserts or replaces `key = "value"` inside `[section]` of a TOML file,
    creating the section (and the file) when needed. Section names that are not
    valid TOML bare keys (e.g. `owl@lock`) are written quoted. Returns true on
@@ -544,18 +607,37 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     // Existing projects will have these values unless they manually configure
     set config = config + "lock = 1\n"
     set config = config + "\"update@lock\" = \"Build\"\n"
+    // Project-declared native C sources/libs/includes (the `[c]` section) are
+    // part of the explicit compiler contract: Avenys never reads owl.toml, so
+    // Owl must forward them here. Without this a project such as token that
+    // defines its own `rt_*` helpers in C fails to link.
+    set c_sources = use! util::toml_get_array("owl.toml" "c" "sources") :vec[str] mut
+    set c_include = use! util::toml_get_array("owl.toml" "c" "include") :vec[str] mut
+    set c_libs = use! util::toml_get_array("owl.toml" "c" "libs") :vec[str] mut
+    set c_cflags = use! util::toml_get_array("owl.toml" "c" "cflags") :vec[str] mut
     // Package roots belong to Avenys' --lib-dir search path, not to native
     // linker `-l` entries. Owl's own archive bridge is the one exception: it
     // is a deliberate development-time C bridge to libarchive, not a Mire
     // runtime dependency.
     if fs::exists("native/archive.c") {
-        set config = config + "libs = [\"archive\"]\n"
-        set config = config + "sources = [\"native/archive.c\"]\n"
-    } else {
-        set config = config + "libs = []\n"
-        set config = config + "sources = []\n"
+        set c_sources = vec::push::str(c_sources "native/archive.c")
+        set c_libs = vec::push::str(c_libs "archive")
     }
-    set config = config + "link-dirs = []\nfeatures = []\ndefines = []\ncflags = []\n\n"
+    set config = config + "libs = " + use! util::toml_array_literal(c_libs) + "\n"
+    set config = config + "sources = " + use! util::toml_array_literal(c_sources) + "\n"
+    set config = config + "link-dirs = []\nfeatures = []\ndefines = []\n"
+    set inc_flags = [] :vec[str] mut
+    set ci = 0 :i64 mut
+    while ci < vec::len(c_include) {
+        set inc_flags = vec::push::str(inc_flags "-I" + vec::get::str(c_include ci))
+        set ci += 1
+    }
+    set ci = 0
+    while ci < vec::len(c_cflags) {
+        set inc_flags = vec::push::str(inc_flags vec::get::str(c_cflags ci))
+        set ci += 1
+    }
+    set config = config + "cflags = " + use! util::toml_array_literal(inc_flags) + "\n\n"
     set config = config + "[security]\n"
     set config = config + "mode = \"strict\"\n"
     set config = config + "externs = [\"rt_*\", \"pal_*\", \"exit\"]\n"
