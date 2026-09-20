@@ -126,10 +126,11 @@ if attempt == 0 { set try_url = url + "/registry.json" }
 
 pub fn list_beta: () {
     set beta_dir = use! util::expand_home("~/.owl/.libs")
+    set beta_dir_ls = strings::copy(beta_dir)
     set ls_args = [] :vec[str] mut
     set ls_args = vec::push::str(ls_args "ls")
     set ls_args = vec::push::str(ls_args "-1")
-    set ls_args = vec::push::str(ls_args beta_dir)
+    set ls_args = vec::push::str(ls_args beta_dir_ls)
     set output = proc::run::output("ls" ls_args)
     if output == "" { return }
     set lines = strings::split(output "\n")
@@ -139,7 +140,9 @@ pub fn list_beta: () {
         if file != "" && strings::ends::with(file ".json") {
             set read_args = [] :vec[str] mut
             set read_args = vec::push::str(read_args "cat")
-            set read_args = vec::push::str(read_args beta_dir + "/" + file)
+            set bd = strings::copy(beta_dir)
+            set filepath = bd + "/" + file
+            set read_args = vec::push::str(read_args filepath)
             set content = proc::run::output("cat" read_args)
             set name = use! registry::extract_json_field(content "name")
             set version = use! registry::extract_json_field(content "version")
