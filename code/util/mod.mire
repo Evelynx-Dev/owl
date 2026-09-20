@@ -409,7 +409,7 @@ pub fn owl_home_keys: () :str {
 
 /! Version and compiler info !/
 pub fn owl_version: () :str {
-    return "1.1.1"
+    return "1.1.2"
 }
 
 pub fn compiler_version: () :str {
@@ -640,7 +640,7 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     set config = config + "cflags = " + use! util::toml_array_literal(inc_flags) + "\n\n"
     set config = config + "[security]\n"
     set config = config + "mode = \"strict\"\n"
-    set config = config + "externs = [\"rt_*\", \"pal_*\", \"exit\"]\n"
+    set config = config + "externs = [\"rt_*\", \"pal_*\", \"exit\", \"owl_archive_*\"]\n"
     set config = config + "extern-libs = [\"c\"]\n"
     set config = config + "macros = [\"assert\", \"assert_eq\", \"assert_ne\", \"dbg\", \"trace_i64\"]\n"
     set config = config + "allow-unsafe = false\n"
@@ -669,6 +669,7 @@ pub fn copy_value: (value :&str) :str { return strings::copy(value) }
 pub fn trim_value: (value :str) :str { return strings::trim(value) }
 pub fn str_equals: (a :&str, b :&str) :bool { return a == b }
 pub fn read_line_trim: () :str { return strings::trim(proc::run::read_line()) }
+pub fn read_line: () :str { return proc::run::read_line() }
 pub fn trim_substr: (s :&str, start :i64, length :i64) :str { return strings::trim(strings::substr(s start length)) }
 pub fn substr_i64: (s :&str, start :i64, length :i64) :i64 { return use! util::string_to_i64(strings::substr(s start length)) }
 

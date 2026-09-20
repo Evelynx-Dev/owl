@@ -1,5 +1,20 @@
 # Owl Changelog
 
+## [1.1.2] - 2026-09-20
+
+### Added
+- **Lockfile checksum-of-change cache**: `owl checkup` now computes SHA-256 of `owl.toml` and compares it to the stored `manifest-sha256` in `owl.lock`. When checksums match, full lockfile validation is skipped (fast path).
+- **Interactive lockfile update prompt**: When `owl.toml` has changed since the last lockfile generation, `owl checkup` prompts `Update lockfile now? (y/N)` with options to regenerate, keep existing, or install locked versions.
+- **Fresh project auto-generation**: New projects created with `owl new` now automatically generate a V3 lockfile on first `owl checkup`/`build`/`run` without blocking.
+
+### Changed
+- **GitHub registry fallback removed**: The `registry add` command no longer attempts to download from `github.com`/`raw.githubusercontent.com` URLs. Users must configure a proper custom registry.
+- **Permissions tightened**: `~/.owl/libs/` directories now use `500` (read+execute for owner) instead of world-readable.
+
+### Fixed
+- **Lockfile validation on fresh projects**: Previously `owl checkup` would fail with "owl.lock not found" on new projects. Now it auto-generates a V3 lockfile and proceeds.
+- **Tilde expansion in dependencies**: `[dependencies]` paths with `~/.owl/libs/...` are now properly expanded via `util::expand_home()`.
+
 ## [1.1.1] - 2026-09-18
 
 ### Fixed

@@ -1,6 +1,6 @@
 # Owl Technical Notes
 
-## Architecture (v1.1.1)
+## Architecture (v1.1.2)
 
 ### CLI core
 - Entrypoint: `code/main.mire` (slim dispatcher)

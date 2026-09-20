@@ -179,7 +179,7 @@ pub fn checkup: (args :&vec[str]) {
 
             if check_deps {
                 use dasu("")
-                if !use! lockfile::validate() { set all_ok = false }
+                if !use! lockfile::ensure() { set all_ok = false }
             }
 
             if check_cache {

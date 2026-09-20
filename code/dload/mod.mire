@@ -179,6 +179,7 @@ pub fn registry_command: (args :&vec[str]) {
     } else {
         if action == "list" {
             use! registry::list()
+            use! registry::list_beta()
         } else {
             if action == "sync" {
                 use! registry::sync()
@@ -191,7 +192,11 @@ pub fn registry_command: (args :&vec[str]) {
                         use! registry::remove(name)
                     }
                 } else {
-                    use dasu("usage: owl reg <add|list|sync|remove> [value]")
+                    if action == "beta" {
+                        use! registry::list_beta()
+                    } else {
+                        use dasu("usage: owl reg <add|list|sync|remove|beta> [value]")
+                    }
                 }
             }
         }

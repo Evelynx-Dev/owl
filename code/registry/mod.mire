@@ -19,15 +19,9 @@ pub fn add: (url :str) {
         set attempt = 0 :i64 mut
         while attempt < 4 {
             set try_url = "" :str mut
-            if attempt == 0 { set try_url = url + "/registry.json" }
+if attempt == 0 { set try_url = url + "/registry.json" }
             if attempt == 1 { set try_url = url + "/raw/main/registry.json" }
             if attempt == 2 { set try_url = url + "/raw/master/registry.json" }
-            if attempt == 3 {
-                if strings::contains(url "github.com") {
-                    set repo_path = strings::replace::all(url "https://github.com/" "")
-                    set try_url = "https://raw.githubusercontent.com/" + repo_path + "/main/registry.json"
-                }
-            }
 
             if try_url != "" {
                 set curl_args = [] :vec[str] mut
@@ -130,6 +124,33 @@ pub fn add: (url :str) {
     return
 }
 
+pub fn list_beta: () {
+    set beta_dir = use! util::expand_home("~/.owl/.libs")
+    set ls_args = [] :vec[str] mut
+    set ls_args = vec::push::str(ls_args "ls")
+    set ls_args = vec::push::str(ls_args "-1")
+    set ls_args = vec::push::str(ls_args beta_dir)
+    set output = proc::run::output("ls" ls_args)
+    if output == "" { return }
+    set lines = strings::split(output "\n")
+    set i = 0 :i64 mut
+    while i < len(lines) {
+        set file = use! util::trim(use! util::list_get(lines i))
+        if file != "" && strings::ends::with(file ".json") {
+            set read_args = [] :vec[str] mut
+            set read_args = vec::push::str(read_args "cat")
+            set read_args = vec::push::str(read_args beta_dir + "/" + file)
+            set content = proc::run::output("cat" read_args)
+            set name = use! registry::extract_json_field(content "name")
+            set version = use! registry::extract_json_field(content "version")
+            if name != "" && version != "" {
+                use dasu("  [BETA] " + name + "@" + version + " (local)")
+            }
+        }
+        set i += 1
+    }
+}
+
 pub fn list: () {
     set reg_dir = use! util::owl_home_registries()
     set proceed = true :bool mut
@@ -216,7 +237,10 @@ pub fn sync_one: (reg_path :str) {
 
     if proceed {
         set content = fs::read(reg_path + "/registry.json")
-        set reg_url = use! util::json_get_str(content "url") :str mut
+        set reg_url = use! util::toml_get("owl.toml" "cfg" "registry_url") :str mut
+        if reg_url == "" {
+            set reg_url = use! util::json_get_str(content "url") :str mut
+        }
         if reg_url == "" {
             set reg_url = use! util::json_get_str(content "name")
         }
@@ -236,12 +260,7 @@ pub fn sync_one: (reg_path :str) {
                 set try_url = "" :str mut
                 if attempt == 0 { set try_url = reg_url + "/index.toml" }
                 if attempt == 1 { set try_url = reg_url + "/raw/main/index.toml" }
-                if attempt == 2 {
-                    if strings::contains(reg_url "github.com") {
-                        set repo_path = strings::replace::all(reg_url "https://github.com/" "")
-                        set try_url = "https://raw.githubusercontent.com/" + repo_path + "/main/index.toml"
-                    }
-                }
+                if attempt == 2 { set try_url = reg_url + "/raw/master/index.toml" }
 
                 if try_url != "" {
                     set curl_args = [] :vec[str] mut
@@ -401,3 +420,22 @@ pub fn sync: () {
     }
     return
 }
+
+fn extract_json_field: (content :str field :str) :str {
+    set needle = "\"" + field + "\" : \""
+    set pos = strings::index(content needle)
+    if pos < 0 {
+        set needle2 = "\"" + field + "\" :\""
+        set pos2 = strings::index(content needle2)
+        if pos2 < 0 { return "" }
+        set start = pos2 + len(needle2)
+        set end = strings::index(strings::substr(content start 9999) "\"")
+        if end < 0 { return "" }
+        return strings::substr(content start end)
+    }
+    set start = pos + len(needle)
+    set end = strings::index(strings::substr(content start 9999) "\"")
+    if end < 0 { return "" }
+    return strings::substr(content start end)
+}
+

@@ -1,6 +1,6 @@
 [project]
 name = "owl"
-version = "1.1.1"
+version = "1.1.2"
 description = "Package and project manager for the Mire (Avenys) language"
 entry = "code/main.mire"
 
@@ -24,7 +24,8 @@ generated = "bin/generated"
 
 [cfg]
 publisher = "publish.toml"
-registry = "mor"
+registry = "local"
+registry_url = "http://localhost:8080"
 cache = "~/.owl/cache"
 libs = "~/.owl/libs"
 
@@ -46,9 +47,11 @@ gc = "code/gc"
 profile = "code/profile"
 export = "code/export"
 upgrade = "code/upgrade"
+
 [dependencies]
 kioto = { path = "~/.owl/libs/kioto" }
 testlib = { path = "./testlib" }
 crypto = { path = "./code/crypto" }
+
 ["owl@lock"]
 version = "3"
