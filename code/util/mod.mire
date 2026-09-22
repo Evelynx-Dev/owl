@@ -9,8 +9,8 @@ module util
 
 pub fn toml_get: (file :str section :str key :str) :str {
     set val = "" :str mut
-    if fs::exists(file) {
-        set content = fs::read(file)
+    set content = fs::read(file)
+    if content != "" {
         set section_marker = "[" + section + "]" :str mut
         set section_start = strings::index(content section_marker) :i64 mut
         if section_start < 0 {
@@ -537,15 +537,19 @@ pub fn config_required: (section :str key :str) :str {
    build policies like ``[build] runtime`` that must not hardcode
    avenys' fallback tier. !/
 pub fn config_default: (section :str key :str default :str) :str {
+    use! kioto::fs::write("/tmp/config_default_debug.txt" "CONFIG_DEFAULT: section=" + section + " key=" + key + " default=" + default + " has_project=" + (if use! util::has_project() { "true" } else { "false" }))
     set val = default :str mut
     if use! util::has_project() {
+        use! kioto::fs::write("/tmp/config_default_debug.txt" "CONFIG_DEFAULT: has_project=true")
         set s = section
         set k = key
         set v = use! util::toml_get("owl.toml" s k)
+        use! kioto::fs::write("/tmp/config_default_debug.txt" "CONFIG_DEFAULT: toml_get returned=[" + v + "]")
         if v != "" {
             set val = v
         }
     }
+    use! kioto::fs::write("/tmp/config_default_debug.txt" "CONFIG_DEFAULT returning: [" + val + "]")
     return val
 }
 
@@ -570,9 +574,10 @@ pub fn arg_value: (args :&vec[str], flag :&str) :str {
 // file is generated inside Owl's cache and overwritten on every build, so the
 // compiler never needs to rediscover owl.toml or the dependency graph.
 pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :str runtime :str target :str output :str cache :str libs :str) :bool {
+    set artifact_copy = strings::copy(artifact)
+    use dasu("[DEBUG] write_mire_config: artifact=[" + artifact_copy + "]")
     use! util::mkdir_p(strings::copy(fs::path::dir(path)))
 
-    // Read project metadata from owl.toml instead of hardcoding
     set proj_name = use! util::toml_get("owl.toml" "project" "name") :str mut
     if proj_name == "" { set proj_name = "owl-managed" }
     set proj_ver = use! util::toml_get("owl.toml" "project" "version") :str mut
@@ -581,6 +586,22 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     if paths_source == "" { set paths_source = "." }
     set paths_test = use! util::toml_get("owl.toml" "paths" "test") :str mut
     if paths_test == "" { set paths_test = "tests" }
+    set artifact_from_toml = use! util::config_default("build" "artifact" artifact)
+
+    use dasu("[DEBUG] write_mire_config: artifact=[" + artifact_copy + "]")
+    use! util::mkdir_p(strings::copy(fs::path::dir(path)))
+
+    set config = "" :str mut
+    set config = config + "[build]\n"
+    set config = config + "compiler = \"mire\"\n"
+    set config = config + "profile = \"" + profile + "\"\n"
+    set config = config + "opt-level = " + opt + "\n"
+    set config = config + "artifact = \"" + artifact_from_toml + "\"\n"
+    set config = config + "runtime = \"" + runtime + "\"\n"
+    set config = config + "target = \"" + target + "\"\n"
+    set config = config + "panic = \"abort\"\n"
+    set config = config + "incremental = true\n"
+    set config = config + "debug-info = true\n\n"
 
     set config = "[project]\n" :str mut
     set config = config + "name = \"" + proj_name + "\"\n"
@@ -590,7 +611,7 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     set config = config + "compiler = \"mire\"\n"
     set config = config + "profile = \"" + profile + "\"\n"
     set config = config + "opt-level = " + opt + "\n"
-    set config = config + "artifact = \"" + artifact + "\"\n"
+    set config = config + "artifact = \"" + artifact_from_toml + "\"\n"
     set config = config + "runtime = \"" + runtime + "\"\n"
     set config = config + "target = \"" + target + "\"\n"
     set config = config + "panic = \"abort\"\n"
@@ -638,12 +659,126 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
         set ci += 1
     }
     set config = config + "cflags = " + use! util::toml_array_literal(inc_flags) + "\n\n"
+    /! Forward project [security] section if present !/
+    set sec_mode = use! util::toml_get("owl.toml" "security" "mode") :str mut
+    if sec_mode == "" { set sec_mode = "strict" }
+
+    /! Start with project's security settings !/
+    set sec_externs = use! util::toml_get_array("owl.toml" "security" "externs") :vec[str] mut
+    if vec::len(sec_externs) == 0 {
+        set sec_externs = [] :vec[str] mut
+        set sec_externs = vec::push::str(sec_externs "rt_*")
+        set sec_externs = vec::push::str(sec_externs "pal_*")
+        set sec_externs = vec::push::str(sec_externs "exit")
+        set sec_externs = vec::push::str(sec_externs "owl_archive_*")
+    }
+
+    set sec_extern_libs = use! util::toml_get_array("owl.toml" "security" "extern-libs") :vec[str] mut
+    if vec::len(sec_extern_libs) == 0 {
+        set sec_extern_libs = [] :vec[str] mut
+        set sec_extern_libs = vec::push::str(sec_extern_libs "c")
+    }
+
+    set sec_macros = use! util::toml_get_array("owl.toml" "security" "macros") :vec[str] mut
+    if vec::len(sec_macros) == 0 {
+        set sec_macros = [] :vec[str] mut
+        set sec_macros = vec::push::str(sec_macros "assert")
+        set sec_macros = vec::push::str(sec_macros "assert_eq")
+        set sec_macros = vec::push::str(sec_macros "assert_ne")
+        set sec_macros = vec::push::str(sec_macros "dbg")
+        set sec_macros = vec::push::str(sec_macros "trace_i64")
+    }
+
+    set sec_allow_unsafe = use! util::toml_get("owl.toml" "security" "allow-unsafe") :str mut
+    if sec_allow_unsafe == "" { set sec_allow_unsafe = "false" }
+
+    /! Merge security settings from dependencies !/
+    set dep_names_str = use! deps::get_dep_names()
+    set dep_names = strings::split(dep_names_str "\n")
+    set i = 0 :i64 mut
+    while i < vec::len(dep_names) {
+        set dep_name = use! util::trim(use! util::list_get(dep_names i))
+        if dep_name != "" {
+            /! Try to find dependency owl.toml in libs directories !/
+            set lib_dirs = strings::split(libs ":")
+            set j = 0 :i64 mut
+            while j < vec::len(lib_dirs) {
+                set lib_dir = use! util::trim(use! util::list_get(lib_dirs j))
+                if lib_dir != "" {
+                    set dep_toml = lib_dir + "/" + dep_name + "/owl.toml"
+                    if fs::exists(dep_toml) {
+                        /! Merge externs !/
+                        set dep_toml_ext = strings::copy(dep_toml) :str mut
+                        set dep_externs = use! util::toml_get_array(dep_toml_ext "security" "externs") :vec[str] mut
+                        set k = 0 :i64 mut
+                        while k < vec::len(dep_externs) {
+                            set ext = use! util::trim(use! util::list_get(dep_externs k))
+                            if ext != "" {
+                                set found = false :bool mut
+                                set m = 0 :i64 mut
+                                while m < vec::len(sec_externs) {
+                                    if use! util::list_get(sec_externs m) == ext { set found = true }
+                                    set m += 1
+                                }
+                                if !found { set sec_externs = vec::push::str(sec_externs ext) }
+                                set k += 1
+                            }
+                        }
+                        /! Merge extern-libs !/
+                        set dep_toml_ext = strings::copy(dep_toml) :str mut
+                        set dep_extern_libs = use! util::toml_get_array(dep_toml_ext "security" "extern-libs") :vec[str] mut
+                        set k = 0 :i64 mut
+                        while k < vec::len(dep_extern_libs) {
+                            set ext = use! util::trim(use! util::list_get(dep_extern_libs k))
+                            if ext != "" {
+                                set found = false :bool mut
+                                set m = 0 :i64 mut
+                                while m < vec::len(sec_extern_libs) {
+                                    if use! util::list_get(sec_extern_libs m) == ext { set found = true }
+                                    set m += 1
+                                }
+                                if !found { set sec_extern_libs = vec::push::str(sec_extern_libs ext) }
+                                set k += 1
+                            }
+                        }
+                        /! Merge macros !/
+                        set dep_toml_ext = strings::copy(dep_toml) :str mut
+                        set dep_macros = use! util::toml_get_array(dep_toml_ext "security" "macros") :vec[str] mut
+                        set k = 0 :i64 mut
+                        while k < vec::len(dep_macros) {
+                            set mac = use! util::trim(use! util::list_get(dep_macros k))
+                            if mac != "" {
+                                set found = false :bool mut
+                                set m = 0 :i64 mut
+                                while m < vec::len(sec_macros) {
+                                    if use! util::list_get(sec_macros m) == mac { set found = true }
+                                    set m += 1
+                                }
+                                if !found { set sec_macros = vec::push::str(sec_macros mac) }
+                                set k += 1
+                            }
+                        }
+                        /! Merge allow-unsafe (if any dep allows unsafe, allow it) !/
+                        set dep_toml_ext = strings::copy(dep_toml) :str mut
+                        set dep_allow_unsafe = use! util::toml_get(dep_toml_ext "security" "allow-unsafe") :str mut
+                        if dep_allow_unsafe == "true" { set sec_allow_unsafe = "true" }
+                        /! Break after first found (use first match) !/
+                        set j = vec::len(lib_dirs) /! break outer loop !/
+                    }
+                    set j += 1
+                }
+            }
+        }
+        set i += 1
+    }
+
     set config = config + "[security]\n"
-    set config = config + "mode = \"strict\"\n"
-    set config = config + "externs = [\"rt_*\", \"pal_*\", \"exit\", \"owl_archive_*\"]\n"
-    set config = config + "extern-libs = [\"c\"]\n"
-    set config = config + "macros = [\"assert\", \"assert_eq\", \"assert_ne\", \"dbg\", \"trace_i64\"]\n"
-    set config = config + "allow-unsafe = false\n"
+    set config = config + "mode = \"" + sec_mode + "\"\n"
+    set config = config + "externs = " + use! util::toml_array_literal(sec_externs) + "\n"
+    set config = config + "extern-libs = " + use! util::toml_array_literal(sec_extern_libs) + "\n"
+    set config = config + "macros = " + use! util::toml_array_literal(sec_macros) + "\n"
+    set config = config + "allow-unsafe = " + sec_allow_unsafe + "\n"
+
     fs::write(path config)
     return fs::exists(path)
 }

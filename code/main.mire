@@ -144,6 +144,7 @@ pub fn main: () {
         return
     }
     if cmd == "-B" || cmd == "build" {
+        use dasu("[DEBUG] main: calling build::compile")
         use! build::compile(args false)
         return
     }

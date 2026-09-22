@@ -18,4 +18,4 @@ cache = "/tmp/owl-archive-cache"
 libs = ["archive"]
 sources = ["native/archive.c"]
 link-dirs = []
-cflags = []
+cflags = ["-Wl,--disable-new-dtags", "-Wl,-rpath,$ORIGIN/../lib/mire"]
