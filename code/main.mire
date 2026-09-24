@@ -40,61 +40,29 @@ pub fn main: () {
         return
     }
     set cmd = args at 1
-    if cmd == "build" {
-        use! build::build(args)
-    } else { if cmd == "run" {
-        use! build::run(args)
-    } else { if cmd == "test" {
-        use! check::test(args)
-    } else { if cmd == "check" {
-        use! check::check(args)
-    } else { if cmd == "info" {
-        use! info::info(args)
-    } else { if cmd == "checkup" {
-        use! check::checkup(args)
-    } else { if cmd == "profile" {
-        use! profile::profile(args)
-    } else { if cmd == "new" {
-        use! deps::new(args)
-    } else { if cmd == "clean" {
-        use! deps::clean(args)
-    } else { if cmd == "load" {
-        use! deps::load(args)
-    } else { if cmd == "install" {
-        use! install::run(args)
-    } else { if cmd == "export" {
-        use! export::run(args)
-    } else { if cmd == "reg" {
-        use! registry::run(args)
-    } else { if cmd == "deps" {
-        use! deps::deps(args)
-    } else { if cmd == "gc" {
-        use! gc::run(args)
-    } else { if cmd == "upgrade" {
-        use! upgrade::run(args)
-    } else { if cmd == "help" || cmd == "-h" || cmd == "--help" {
-        use! ui::help()
-    } else { if cmd == "version" || cmd == "-V" || cmd == "--version" {
-        use! ui::banner()
-    } else {
-        use! ui::help()
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
+    match cmd {
+        "build" { use! build::compile(args false) }
+        "run" { use! build::compile(args true) }
+        "test" { use! check::run(args) }
+        "check" { use! check::checkup(args) }
+        "info" { use! info::run(args) }
+        "checkup" { use! check::checkup(args) }
+        "profile" { use! profile::run(args) }
+        "new" { use! deps::new(args) }
+        "clean" { use! deps::clean(args) }
+        "load" { use! deps::load_cmd(args) }
+        "install" { use! install::run_simple(args) }
+        "export" { use! export::run(args) }
+        "reg" { use! registry::sync() }
+        "deps" { use! deps::deps(args) }
+        "gc" { use! gc::run(args) }
+        "upgrade" { use! upgrade::run(args) }
+        "help" { use! ui::help() }
+        "-h" { use! ui::help() }
+        "--help" { use! ui::help() }
+        "version" { use! ui::banner() }
+        "-V" { use! ui::banner() }
+        "--version" { use! ui::banner() }
+        _ { use! ui::help() }
     }
 }

@@ -1,5 +1,6 @@
 module info
 
+load kioto::strings
 load! /code/util
 load! /code/deps
 

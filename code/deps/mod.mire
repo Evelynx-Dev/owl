@@ -391,3 +391,35 @@ pub fn list_contains: (list :&str, item :&str) :bool {
     }
     return false
 }
+
+pub fn new: (args :&vec[str]) {
+    use dasu("deps new: not implemented")
+}
+
+pub fn clean: (args :&vec[str]) {
+    use dasu("deps clean: not implemented")
+}
+
+pub fn load_cmd: (args :&vec[str]) {
+    use dasu("deps load: not implemented")
+}
+
+pub fn deps: (args :&vec[str]) {
+    use dasu("deps deps: not implemented")
+}
+
+pub fn new: (args :&vec[str]) {
+    use dasu("deps new: not implemented")
+}
+
+pub fn clean: (args :&vec[str]) {
+    use dasu("deps clean: not implemented")
+}
+
+pub fn load_cmd: (args :&vec[str]) {
+    use dasu("deps load: not implemented")
+}
+
+pub fn deps: (args :&vec[str]) {
+    use dasu("deps deps: not implemented")
+}
