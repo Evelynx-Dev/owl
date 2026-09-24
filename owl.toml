@@ -49,6 +49,7 @@ export = "code/export"
 upgrade = "code/upgrade"
 
 [dependencies]
+mire = { path = "~/.owl/libs/mire" }
 kioto = { path = "~/.owl/libs/kioto" }
 testlib = { path = "./testlib" }
 crypto = { path = "./code/crypto" }
