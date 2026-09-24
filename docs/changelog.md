@@ -1,19 +1,16 @@
 # Owl Changelog
 
-## [1.1.2] - 2026-09-20
-
-### Added
-- **Lockfile checksum-of-change cache**: `owl checkup` now computes SHA-256 of `owl.toml` and compares it to the stored `manifest-sha256` in `owl.lock`. When checksums match, full lockfile validation is skipped (fast path).
-- **Interactive lockfile update prompt**: When `owl.toml` has changed since the last lockfile generation, `owl checkup` prompts `Update lockfile now? (y/N)` with options to regenerate, keep existing, or install locked versions.
-- **Fresh project auto-generation**: New projects created with `owl new` now automatically generate a V3 lockfile on first `owl checkup`/`build`/`run` without blocking.
-
-### Changed
-- **GitHub registry fallback removed**: The `registry add` command no longer attempts to download from `github.com`/`raw.githubusercontent.com` URLs. Users must configure a proper custom registry.
-- **Permissions tightened**: `~/.owl/libs/` directories now use `500` (read+execute for owner) instead of world-readable.
+## [1.1.2] - 2026-09-22
 
 ### Fixed
-- **Lockfile validation on fresh projects**: Previously `owl checkup` would fail with "owl.lock not found" on new projects. Now it auto-generates a V3 lockfile and proceeds.
-- **Tilde expansion in dependencies**: `[dependencies]` paths with `~/.owl/libs/...` are now properly expanded via `util::expand_home()`.
+- **Main entry point restored**: `code/main.mire` now has a proper `pub fn main: ()` with full command dispatch (build, run, test, check, info, checkup, profile, new, clean, load, install, export, reg, deps, gc, upgrade, help, version)
+- **proc module integration fixed**: `code/util/mod.mire` now declares PAL proc externs directly (`pal_proc_create`, `pal_proc_wait`, `pal_proc_kill`, `pal_proc_close`, `rt_build_argv`, `rt_free_argv`, `rt_vec_len`, `rt_proc_capture_argv`, `rt_proc_capture_argv2`, `rt_proc_last_exit`, `rt_read_tty`) instead of depending on `kioto::proc` which could not be loaded due to Mire's module resolution limitations
+- **Build configuration updated**: Uses manual `mire-config.toml` for native archive linking (`native/archive.c`, `archive` lib)
+- **Command modules updated**: All modules (build, check, crypto, export, info, install, lockfile, profile, registry, upgrade) now call PAL/rt_* functions directly instead of `proc::run_*`
+
+### Changed
+- **owl.toml version 1.1.2**: Updated dependency paths to `~/.owl/libs/mire` and `~/.owl/libs/kioto`
+- **Kioto proc module flattened**: `kioto::proc` now exports all functions at top level (`run_create`, `run_spawn`, `run_output`, `run_output_cwd`, `run_last_exit`, `run_read_line`, `wait`, `kill`, `close`, `stream`) for direct loading
 
 ## [1.1.1] - 2026-09-18
 
@@ -32,7 +29,7 @@
 
 ### Lockfile V3 Automatic Generation
 - `owl ensure` now returns `true` immediately if no `owl.lock` exists
-- Project new → lockfile V3 automatically generated on first `build`/`run`
+- Project new → lockfile V3 automatically generated on first `owl checkup`/`build`/`run`
 - Lockfile format: `manifest-sha512`, `[[package]]` entries with name/version/path/registry/compiler/language
 - V1 and V2 still readable and editable via `owl.toml [owl@lock] version`
 
