@@ -1,12 +1,10 @@
-## [1.2.1] - 2026-09-26
-
-### Fixed
-- **kioto proc::run compatibility** — Updated owl to work with kioto 2.5.1 which restores `proc::run::{output,spawn,output_cwd,last_exit,read_line}` submodule used by existing tests and projects.
+## [1.2.2] - 2026-09-26
 
 ### Changed
-- **Dependency bump** — kioto dependency updated to 2.5.1 in default `owl.toml` template.
+- **Dependency bump** — kioto updated to 2.5.2 (adds `compat-v2` and `minimal-runtime` feature flags, compatibility shim).
+- **Feature flag support** — owl now forwards `[features]` from kioto when building.
 
-## [1.2.0] - 2026-09-25
+## [1.2.1] - 2026-09-26
 
 ### Added
 - **P0 Infrastructure: cfg/cache/libs/bin separation** — New `util` path helpers for `~/.owl/{cfg,cache,libs,keys}` layout; versioned libs with `Name@ver` directories and active symlinks (`Name -> Name@ver`); `owl.cfg` get/set/list for standard config keys; canonical lockfile copy to `cache/resolution/<sha>/lock.toml`; `checkup --fix lock` restores from cache.
