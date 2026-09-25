@@ -1,8 +1,7 @@
 module lockfile
 
 load! /code/util
-
-extern fn owl_archive_extract: (input :&str destination :&str) :i32 lib "c"
+load! /code/_externs
 
 pub fn exists: () :bool {
     return fs::exists("owl.lock")

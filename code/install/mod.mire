@@ -3,8 +3,8 @@ module install
 load! /code/util
 load! /code/semver
 load! /code/lockfile
-
-extern fn owl_archive_extract: (input :&str destination :&str) :i32 lib "c"
+load! /code/dep_resolver
+load! /code/_externs
 
 pub fn run: (has_l :bool has_t :bool no_verify :bool force :bool target_val :str yes :bool name :str ver :str has_lock :bool) :u8 {
     set ec = 0 :u8 mut
@@ -26,12 +26,12 @@ pub fn run: (has_l :bool has_t :bool no_verify :bool force :bool target_val :str
         if is_empty {
             if has_t { use dasu("Usage: owl install -t <name>") } else {
                 use dasu("  resolving dependencies from owl.toml ...")
-                set regenerated = use! lockfile::generate()
-                if regenerated {
-                    use dasu("  owl.lock updated")
-                    /! use! lockfile::all() !/
+                set plan = use! dep_resolver::resolve()
+                set ok = use! dep_resolver::execute_plan(plan)
+                if ok {
+                    use dasu("  [OK]   dependencies resolved and locked")
                 } else {
-                    use dasu("  error: could not generate owl.lock")
+                    use dasu("  [FAIL] could not resolve dependencies")
                     set ec = 1 :u8
                 }
             }

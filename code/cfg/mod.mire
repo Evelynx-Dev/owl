@@ -1,16 +1,6 @@
 module cfg
 
-extern fn toml_get: (file :str section :str key :str) :str lib "util"
-extern fn toml_set: (file :str section :str key :str value :str) :bool lib "util"
-extern fn has_project: () :bool lib "util"
-extern fn owl_home_cfg: () :str lib "util"
-extern fn mkdir_p: (path :str) lib "util"
-extern fn error_line: (code :str) :i64
-extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
-extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
-extern fn fs_exists: (path :&str) :bool lib "util"
-extern fn fs_read: (path :&str) :str lib "util"
-extern fn fs_write: (path :&str content :&str) :bool lib "util"
+load! /code/_externs
 
 /! Global config file path !/
 pub fn global_cfg_path: () :str {

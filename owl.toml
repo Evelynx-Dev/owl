@@ -42,11 +42,13 @@ info = "code/info"
 ui = "code/ui"
 args = "code/args"
 deps = "code/deps"
+dep_resolver = "code/dep_resolver"
 lockfile = "code/lockfile"
 gc = "code/gc"
 profile = "code/profile"
 export = "code/export"
 upgrade = "code/upgrade"
+_externs = "code/_externs"
 
 [dependencies]
 mire = { path = "~/.owl/libs/mire" }
@@ -55,7 +57,7 @@ testlib = { path = "~/.owl/libs/testlib" }
 crypto = { path = "./code/crypto" }
 
 [c]
-sources = ["native/archive.c"]
+sources = ["native/archive.c", "code/_externs/mod.mire"]
 libs = ["archive", "zstd"]
 
 ["owl@lock"]

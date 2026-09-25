@@ -1,6 +1,7 @@
 module deps
 
 load! /code/util
+load! /code/dep_resolver
 
 pub fn deps_section: () :str {
     set section = "" :str mut
@@ -430,6 +431,17 @@ pub fn prune_unused: () :bool {
     set new_c = before + "\n" + kept + after
     use fs::write("owl.toml" new_c)
     return use! lockfile::generate()
+}
+
+/! Delegate resolution to dep_resolver !/
+pub fn resolve: () :bool {
+    set plan = use! dep_resolver::resolve()
+    return use! dep_resolver::execute_plan(plan)
+}
+
+/! Install/update dependencies based on owl.toml !/
+pub fn install_deps: () :bool {
+    return use! deps::resolve()
 }
 
 pub fn new: (args :&vec[str]) {

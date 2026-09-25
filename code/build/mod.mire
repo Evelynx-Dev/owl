@@ -5,10 +5,8 @@ load! /code/lockfile
 load! /code/deps
 load! /code/install
 load! /code/args
-    set cfg_lock = use! util::toml_get("owl.toml" "cfg" "lock")
-    if cfg_lock == "0" { return true }
-
-extern fn exit: (code :i64) lib "c"
+load! /code/lockfile
+load! /code/_externs
 
 /! Validate the project environment before compilation. A missing or stale
    lockfile is a dependency-management state, not a compiler error: Owl asks

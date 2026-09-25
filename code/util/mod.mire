@@ -13,17 +13,7 @@ load kioto::net
 load kioto::log
 load kioto::cli
 load kioto::crypto
-extern fn pal_proc_create: (argv :ptr, flags :i32, stdin_ch :i64, stdout_ch :i64, stderr_ch :i64) :i64 lib "c"
-extern fn pal_proc_wait: (proc :i64) :i64 lib "c"
-extern fn pal_proc_kill: (proc :i64) :i64 lib "c"
-extern fn pal_proc_close: (proc :i64) lib "c"
-extern fn rt_build_argv: (cmd :&str, args :vec[str]) :ptr lib "c"
-extern fn rt_free_argv: (argv :ptr, argc :i64) lib "c"
-extern fn rt_vec_len: (v :vec[str]) :i64 lib "c"
-extern fn rt_proc_capture_argv: (cmd :&str, args :vec[str]) :str lib "c"
-extern fn rt_proc_capture_argv2: (cmd :&str, args :vec[str], cwd :&str, merge_err :i64) :str lib "c"
-extern fn rt_proc_last_exit: () :i64 lib "c"
-extern fn rt_read_tty: () :str lib "c"
+load! /code/_externs
 
 // NOTE: 9999 is used as "rest of string" length in strings::substr calls
 // throughout the codebase. It works because substr clamps to string bounds.
@@ -210,7 +200,7 @@ pub fn toml_set: (file :str section :str key :str value :str) :bool {
 pub fn extract_git_head: (args :vec[str] dest :&str) :str {
     // Execute git rev-parse HEAD and return the commit hash
     // This replaces util::trim_command("git" args) with native string parsing
-    set output = rt_proc_capture_argv("git" args)
+    set output = use! _externs::rt_proc_capture_argv("git" args)
     set head = strings::trim(output)
     // Validate it's a valid hex commit hash (40 chars)
     if len(head) == 40 { return head }
@@ -463,7 +453,7 @@ pub fn owl_version: () :str {
 
 pub fn compiler_version: () :str {
     set ver = "" :str mut
-    set v = use! rt_proc_capture_argv(use! util::compiler_cmd() ["--version"])
+    set v = use! _externs::rt_proc_capture_argv(use! util::compiler_cmd() ["--version"])
     if v != "" {
         set ver = v
     } else {
@@ -517,7 +507,7 @@ pub fn compiler_cmd: () :str {
             if mire_home != "" && fs::exists(mire_home + "/bin/mire") {
                 set cmd = mire_home + "/bin/mire"
             } else {
-                /! Portable CI fallback. use! rt_proc_capture_argv performs a
+                /! Portable CI fallback. use! _externs::rt_proc_capture_argv performs a
                    direct executable lookup through PATH; no shell is
                    created and no command string is interpreted. !/
                 set cmd = "mire"
@@ -546,7 +536,7 @@ pub fn compiler_cmd: () :str {
 pub fn run_compiler: (args :vec[str]) :str {
     set mire = use! util::compiler_cmd()
     use dasu("[DEBUG] run_compiler: mire=" + mire + " args=" + strings::join(args " "))
-    return use! rt_proc_capture_argv(mire args)
+    return use! _externs::rt_proc_capture_argv(mire args)
 }
 
 pub fn config_required: (section :str key :str) :str {
@@ -592,13 +582,13 @@ pub fn config_default: (section :str key :str default :str) :str {
 // compiler-facing options that must be represented in the normalized Mire
 // configuration instead of being appended ambiguously to a command string.
 pub fn arg_value: (args :&vec[str], flag :&str) :str {
-    set n = rt_vec_len(args)
+    set n = use! _externs::rt_vec_len(args)
     set result = "" :str mut
     set i = 0 :i64 mut
     while i < n {
-        set item = rt_vec_get_str(args i)
+        set item = use! _externs::rt_vec_get_str(args i)
         if item == flag && i + 1 < n {
-            set result = rt_vec_get_str(args i + 1)
+            set result = use! _externs::rt_vec_get_str(args i + 1)
         }
         set i += 1
     }
@@ -710,7 +700,7 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
         set sec_externs = [] :vec[str] mut
         set sec_externs = vec::push::str(sec_externs "rt_*")
         set sec_externs = vec::push::str(sec_externs "pal_*")
-        set sec_externs = vec::push::str(sec_externs "exit")
+        set sec_externs = vec::push::str(sec_externs "_externs::exit")
         set sec_externs = vec::push::str(sec_externs "owl_archive_*")
     }
 
@@ -827,12 +817,6 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
 }
 
 /! Kioto wrappers !/
-extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
-extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
-extern fn rt_string_to_i64: (value :str) :i64 lib "c"
-extern fn rt_i64_to_string: (value :i64) :str lib "c"
-extern fn exit: (code :i64) lib "c"
-
 pub fn trim: (s :&str) :str { return strings::trim(s) }
 pub fn split: (s :&str, sep :&str) :vec[str] { return strings::split(s sep) }
 pub fn contains: (s :&str, sub :&str) :bool { return rt_strings_contains(s sub) }
@@ -846,8 +830,8 @@ pub fn path_exists: (path :&str) :bool { return fs::exists(path) }
 pub fn copy_value: (value :&str) :str { return strings::copy(value) }
 pub fn trim_value: (value :str) :str { return strings::trim(value) }
 pub fn str_equals: (a :&str, b :&str) :bool { return a == b }
-pub fn read_line_trim: () :str { return strings::trim(rt_read_tty()) }
-pub fn read_line: () :str { return rt_read_tty() }
+pub fn read_line_trim: () :str { return strings::trim(use! _externs::rt_read_tty()) }
+pub fn read_line: () :str { return use! _externs::rt_read_tty() }
 pub fn trim_substr: (s :&str, start :i64, length :i64) :str { return strings::trim(strings::substr(s start length)) }
 pub fn substr_i64: (s :&str, start :i64, length :i64) :i64 { return use! util::string_to_i64(strings::substr(s start length)) }
 
@@ -944,8 +928,8 @@ pub fn scan_load_packages: () :str {
     return scan_load_tree("tests" result)
 }
 
-pub fn string_to_i64: (s :str) :i64 { return rt_string_to_i64(s) }
-pub fn i64_to_string: (v :i64) :str { return rt_i64_to_string(v) }
+pub fn string_to_i64: (s :str) :i64 { return use! _externs::rt_string_to_i64(s) }
+pub fn i64_to_string: (v :i64) :str { return use! _externs::rt_i64_to_string(v) }
 
 /! Record a successful build in ~/.owl/cache/build_status.toml so
    `owl profile` can report real build counts and last-build time. !/

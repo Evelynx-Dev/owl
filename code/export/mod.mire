@@ -2,9 +2,7 @@ module export
 
 load! /code/util
 load! /code/args
-
-extern fn owl_archive_available: () :i32 lib "c"
-extern fn owl_archive_pack: (root :&str output :&str) :i32 lib "c"
+load! /code/_externs
 
 pub fn run: (args :&vec[str]) {
     set proceed = true :bool mut
