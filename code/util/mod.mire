@@ -605,13 +605,12 @@ pub fn arg_value: (args :&vec[str], flag :&str) :str {
     return result
 }
 
-// Writes the closed configuration contract consumed by Avenys 4.0.0. The
-// file is generated inside Owl's cache and overwritten on every build, so the
-// compiler never needs to rediscover owl.toml or the dependency graph.
 pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :str runtime :str target :str output :str cache :str libs :str) :bool {
+    use fs::write("/tmp/mire_write_mire_config_called.txt" "write_mire_config called with path=[" + path + "]\n")
     set artifact_copy = strings::copy(artifact)
-    use dasu("[DEBUG] write_mire_config: artifact=[" + artifact_copy + "]")
+    use dasu("[DEBUG] write_mire_config: artifact=[" + artifact_copy + "] path=[" + path + "]")
     use! util::mkdir_p(strings::copy(fs::path::dir(path)))
+    use fs::write("write_mire_config_debug.txt" "write_mire_config called with path=[" + path + "]\n")
 
     set proj_name = use! util::toml_get("owl.toml" "project" "name") :str mut
     if proj_name == "" { set proj_name = "owl-managed" }
@@ -675,10 +674,17 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     // linker `-l` entries. Owl's own archive bridge is the one exception: it
     // is a deliberate development-time C bridge to libarchive, not a Mire
     // runtime dependency.
-    if fs::exists("native/archive.c") {
-        set c_sources = vec::push::str(c_sources "native/archive.c")
-        set c_libs = vec::push::str(c_libs "archive")
+    /! Only add archive bridge if not already declared in owl.toml !/
+    set has_archive_src = false :bool mut
+    set i = 0 :i64 mut
+    while i < vec::len(c_sources) {
+        if vec::get::str(c_sources i) == "native/archive.c" {
+            set has_archive_src = true
+        }
+        set i += 1
     }
+    /! Do not add "archive" to libs - it's not a system library.
+       The native/archive.c source will be compiled and linked automatically. !/
     set config = config + "libs = " + use! util::toml_array_literal(c_libs) + "\n"
     set config = config + "sources = " + use! util::toml_array_literal(c_sources) + "\n"
     set config = config + "link-dirs = []\nfeatures = []\ndefines = []\n"
@@ -815,6 +821,8 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     set config = config + "allow-unsafe = " + sec_allow_unsafe + "\n"
 
     fs::write(path config)
+    set config_len = len(config) :i64 mut
+    use fs::write("/tmp/write_mire_config_result.txt" "write_mire_config: path=[" + path + "] exists=[" + (if fs::exists(path) { "true" } else { "false" }) + "] config_len=[" + use! util::i64_to_string(config_len) + "]\n")
     return fs::exists(path)
 }
 

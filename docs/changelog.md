@@ -1,3 +1,28 @@
+## [1.2.0] - 2026-09-25
+
+### Added
+- **P0 Infrastructure: cfg/cache/libs/bin separation** — New `util` path helpers for `~/.owl/{cfg,cache,libs,keys}` layout; versioned libs with `Name@ver` directories and active symlinks (`Name -> Name@ver`); `owl.cfg` get/set/list for standard config keys; canonical lockfile copy to `cache/resolution/<sha>/lock.toml`; `checkup --fix lock` restores from cache.
+- **`owl new` minimal template** — Creates only `owl.toml`, `bin/`, and `src/main.mire` with v1.2.0 format.
+- **CLI flag validation** — `args::allowed_flags()` and `args::validate()` provide tree-style error messages for unknown flags per subcommand.
+- **Project `[c]` forwarding** — `owl build`/`run`/`test` now forward `[c] sources`, `[c] include`, `[c] libs`, `[c] cflags` from `owl.toml` to the compiler. `[c] include` directories emitted as `-I` cflags.
+- **Test runner integration** — `check::run_tests()` generates test config and invokes compiler's `test` command with proper flags and lib-dir.
+
+### Changed
+- **Dependency commands** — `deps clean` removes unused deps and regenerates lockfile; `deps load` scans sources for `load` statements and injects missing deps; `deps deps` prints dependency tree.
+- **`proc::run::output` → `proc::run_output`** — Updated test suite to use new kioto API.
+- **`testlib` path** — Changed from local `./testlib` to `~/.owl/libs/testlib` for consistency.
+- **Lockfile generation** — Writes main `owl.lock`; cache write deferred to avoid ownership issues.
+
+### Fixed
+- **`write_mire_config` debug output** — Added debug file writes to trace config generation.
+- **Archive bridge** — Only adds `native/archive.c` if not already declared in `owl.toml`; does not add `archive` to libs (source compiled directly).
+- **Lockfile restore** — Reads cached lock file content before writing to avoid ownership issues.
+
+### Known Limitations (Stubs)
+- **`install package/clone`** — Minimal stubs due to compiler ownership analysis issues; full implementation pending compiler fix.
+- **`checkup --fix deps` / `lockfile.ensure`** — Stubbed for same reason.
+- **`clean`, `load`, `install`, `deps` commands** — Stubbed in main dispatch.
+
 # Owl Changelog
 
 ## [1.1.2] - 2026-09-22

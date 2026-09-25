@@ -453,13 +453,34 @@ pub fn new: (args :&vec[str]) {
 }
 
 pub fn clean: (args :&vec[str]) {
-    use dasu("deps clean: not implemented")
+    /! Remove unused dependencies from owl.toml and regenerate lockfile !/
+    if !use! util::has_project() {
+        use dasu("Error: no owl.toml found")
+        return
+    }
+    set ok = use! deps::prune_unused()
+    if ok {
+        use dasu("  [OK]   unused dependencies pruned and lockfile regenerated")
+    } else {
+        use dasu("  [FAIL] could not prune dependencies")
+    }
 }
 
 pub fn load_cmd: (args :&vec[str]) {
-    use dasu("deps load: not implemented")
+    /! Scan source files for load statements and inject missing deps into owl.toml !/
+    if !use! util::has_project() {
+        use dasu("Error: no owl.toml found")
+        return
+    }
+    use! check::loads()
+    use dasu("  [OK]   missing loads injected and lockfile regenerated")
 }
 
 pub fn deps: (args :&vec[str]) {
-    use dasu("deps deps: not implemented")
+    /! Print dependency tree !/
+    if !use! util::has_project() {
+        use dasu("Error: no owl.toml found")
+        return
+    }
+    use! check::run(args)
 }

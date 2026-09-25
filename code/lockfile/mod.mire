@@ -428,24 +428,24 @@ set sha_main = use! util::sha256sum_hex("owl.toml")
                 if nl < 0 { set running = false }
             }
             
-            /! Build final content from entries !/
-            set content = header :str mut
+            /! Build both content strings from entries !/
+            set sha = use! util::sha256sum_hex("owl.toml")
+            set sha_cache = strings::copy(sha)
+            if sha != "" {
+                set res_dir = use! util::owl_home_cache_resolution(sha)
+                use! util::mkdir_p(res_dir)
+            }
+            /! Build both content strings from entries !/
+            set content_owl = header :str mut
             set i = 0 :i64 mut
             set elen = vec::len(entries)
             while i < elen {
-                set content = content + vec::get::str(entries i)
+                set content_owl = content_owl + vec::get::str(entries i)
                 set i += 1
             }
-            
-            use fs::write("owl.lock" content)
-            /! Write canonical lock copy to cache/resolution/<sha>/lock.toml !/
-            /! Skip cache write for now to avoid ownership issues !/
-            /! set sha = use! util::sha256sum_hex("owl.toml") !/
-            /! if sha != "" { !/
-            /!     set res_dir = use! util::owl_home_cache_resolution(sha) !/
-            /!     use! util::mkdir_p(res_dir) !/
-            /!     use fs::write(res_dir + "/lock.toml" content) !/
-            /! } !/
+/! Skip cache write for now to avoid ownership issues - write main lock only !/
+            set main_content = header + vec::join(entries "") :str mut
+            use fs::write("owl.lock" main_content)
             set ok = true
         }
     }
@@ -719,7 +719,7 @@ pub fn all: () :bool {
    reach the network (tarball URLs) are passed as argv, never interpolated
    into a shell command line.
 !/
-fn install_one: (pkg_name :str pkg_ver :str registry_name :str) {
+pub fn install_one: (pkg_name :str pkg_ver :str registry_name :str) {
     set reg_dir = use! util::owl_home_registries()
     set idx_path = reg_dir + "/" + registry_name + "/index.toml"
 
@@ -937,9 +937,10 @@ pub fn fix_lock: () :bool {
     set cached_manifest = use! util::toml_get_from_string(cached_content "lock" "manifest-sha256")
     set current_manifest = use! util::sha256sum_hex("owl.toml")
     if cached_manifest != "" && cached_manifest == current_manifest {
-        /! Skip cache write for now to avoid ownership issues !/
-        /! use fs::write("owl.lock" cached_content) !/
-        use dasu("  [OK]   owl.lock restored from cache (simulated)")
+        /! Read the file again to avoid ownership issues !/
+        set restored_content = fs::read(cached_lock)
+        use fs::write("owl.lock" restored_content)
+        use dasu("  [OK]   owl.lock restored from cache")
         return true
     }
     return false

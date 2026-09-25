@@ -51,8 +51,12 @@ upgrade = "code/upgrade"
 [dependencies]
 mire = { path = "~/.owl/libs/mire" }
 kioto = { path = "~/.owl/libs/kioto" }
-testlib = { path = "./testlib" }
+testlib = { path = "~/.owl/libs/testlib" }
 crypto = { path = "./code/crypto" }
+
+[c]
+sources = ["native/archive.c"]
+libs = ["archive", "zstd"]
 
 ["owl@lock"]
 version = "3"

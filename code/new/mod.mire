@@ -54,9 +54,8 @@ pub fn run: (args :&vec[str]) :i64 {
     }
 
     /! Create project structure !/
-    set src_dir = name + "/src"
     set bin_dir = name + "/bin"
-    use! util::mkdir_p(src_dir)
+    use! util::mkdir_p(name + "/src")
     use! util::mkdir_p(bin_dir)
 
     /! Write owl.toml !/
@@ -68,7 +67,7 @@ pub fn run: (args :&vec[str]) :i64 {
     }
 
     /! Write src/main.mire !/
-    set main_mire = src_dir + "/main.mire"
+    set main_mire = name + "/src/main.mire"
     set main_content = use! new::minimal_main(name)
     if !fs::write(main_mire main_content) {
         use dasu("Error: failed to write src/main.mire")

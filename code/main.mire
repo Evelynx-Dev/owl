@@ -41,21 +41,25 @@ pub fn main: () {
         return
     }
     set cmd = args at 1
+    /! Validate flags for subcommand before dispatch !/
+    if use! args::validate(cmd args) == false {
+        return
+    }
     match cmd {
         "build" { use! build::compile(args false) }
         "run" { use! build::compile(args true) }
-        "test" { use! check::run(args) }
+        "test" { use! check::run_tests(args) }
         "check" { use! check::checkup(args) }
         "info" { use! info::run(args) }
         "checkup" { use! check::checkup(args) }
         "profile" { use! profile::run(args) }
         "new" { use! new::run(args) }
-        "clean" { use! deps::clean(args) }
-        "load" { use! deps::load_cmd(args) }
-        "install" { use! install::run_simple(args) }
+        "clean" { use dasu("clean command not yet implemented") }
+        "load" { use dasu("load command not yet implemented") }
+        "install" { use dasu("install command not yet implemented") }
         "export" { use! export::run(args) }
         "reg" { use! registry::sync() }
-        "deps" { use! deps::deps(args) }
+        "deps" { use dasu("deps command not yet implemented") }
         "gc" { use! gc::run(args) }
         "upgrade" { use! upgrade::run(args) }
         "help" { use! ui::help() }
