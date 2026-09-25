@@ -210,7 +210,7 @@ pub fn toml_set: (file :str section :str key :str value :str) :bool {
 pub fn extract_git_head: (args :vec[str] dest :&str) :str {
     // Execute git rev-parse HEAD and return the commit hash
     // This replaces util::trim_command("git" args) with native string parsing
-    set output = proc::run_output("git" args)
+    set output = rt_proc_capture_argv("git" args)
     set head = strings::trim(output)
     // Validate it's a valid hex commit hash (40 chars)
     if len(head) == 40 { return head }
@@ -463,7 +463,7 @@ pub fn owl_version: () :str {
 
 pub fn compiler_version: () :str {
     set ver = "" :str mut
-    set v = proc::run_output(use! util::compiler_cmd() ["--version"])
+    set v = use! rt_proc_capture_argv(use! util::compiler_cmd() ["--version"])
     if v != "" {
         set ver = v
     } else {
@@ -517,7 +517,7 @@ pub fn compiler_cmd: () :str {
             if mire_home != "" && fs::exists(mire_home + "/bin/mire") {
                 set cmd = mire_home + "/bin/mire"
             } else {
-                /! Portable CI fallback. proc::run_output performs a
+                /! Portable CI fallback. use! rt_proc_capture_argv performs a
                    direct executable lookup through PATH; no shell is
                    created and no command string is interpreted. !/
                 set cmd = "mire"
@@ -546,7 +546,7 @@ pub fn compiler_cmd: () :str {
 pub fn run_compiler: (args :vec[str]) :str {
     set mire = use! util::compiler_cmd()
     use dasu("[DEBUG] run_compiler: mire=" + mire + " args=" + strings::join(args " "))
-    return proc::run_output(mire args)
+    return use! rt_proc_capture_argv(mire args)
 }
 
 pub fn config_required: (section :str key :str) :str {
@@ -846,8 +846,8 @@ pub fn path_exists: (path :&str) :bool { return fs::exists(path) }
 pub fn copy_value: (value :&str) :str { return strings::copy(value) }
 pub fn trim_value: (value :str) :str { return strings::trim(value) }
 pub fn str_equals: (a :&str, b :&str) :bool { return a == b }
-pub fn read_line_trim: () :str { return strings::trim(proc::run_read_line()) }
-pub fn read_line: () :str { return proc::run_read_line() }
+pub fn read_line_trim: () :str { return strings::trim(rt_read_tty()) }
+pub fn read_line: () :str { return rt_read_tty() }
 pub fn trim_substr: (s :&str, start :i64, length :i64) :str { return strings::trim(strings::substr(s start length)) }
 pub fn substr_i64: (s :&str, start :i64, length :i64) :i64 { return use! util::string_to_i64(strings::substr(s start length)) }
 

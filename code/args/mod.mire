@@ -36,7 +36,7 @@ pub fn value: (args :&vec[str], flag :&str) :str {
 }
 
 /! Map of subcommand -> allowed flags (short and long) !/
-pub fn allowed_flags: (subcmd :str) :vec[str] {
+pub fn allowed_flags: (subcmd :&str) :vec[str] {
     set result = [] :vec[str] mut
     if subcmd == "build" || subcmd == "run" {
         set result = vec::push::str(result "--release")
@@ -95,7 +95,7 @@ pub fn allowed_flags: (subcmd :str) :vec[str] {
 }
 
 /! Validate args for a subcommand, print tree-style error on unknown flags !/
-pub fn validate: (subcmd :str, args :&vec[str]) :bool {
+pub fn validate: (subcmd :&str, args :&vec[str]) :bool {
     set allowed = use! args::allowed_flags(subcmd)
     set n = rt_vec_len(args)
     set i = 0 :i64 mut
@@ -113,14 +113,14 @@ pub fn validate: (subcmd :str, args :&vec[str]) :bool {
                 /! Print tree-style error !/
                 use dasu("error[E0012] CLI Error")
                 use dasu("+--[E0012: Unknown flag " + a + "]")
-                use dasu("|   flag '" + a + "' not recognized for subcommand '" + subcmd + "'")
+                use dasu(strings::concat("|   flag '" + a + "' not recognized for subcommand '" subcmd "'"))
                 use dasu("|   available flags:")
                 set j = 0 :i64 mut
                 while j < alen {
                     use dasu("|   - " + rt_vec_get_str(allowed j))
                     set j += 1
                 }
-                use dasu("|   run 'owl " + subcmd + " --help' for usage")
+                use dasu(strings::concat("|   run 'owl " subcmd " --help' for usage"))
                 return false
             }
         }

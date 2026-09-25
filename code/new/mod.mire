@@ -43,39 +43,39 @@ pub fn run: (args :&vec[str]) :i64 {
         use dasu("Usage: owl new <project-name>")
         return 1
     }
-    set name = use! util::rt_vec_get_str(args 0)
-    if name == "" {
+    /! Get project name fresh for each use to avoid ownership issues !/
+    if use! util::rt_vec_get_str(args 0) == "" {
         use dasu("Error: project name cannot be empty")
         return 1
     }
-    if fs::exists(name) {
-        use dasu("Error: directory '" + name + "' already exists")
+    if fs::exists(use! util::rt_vec_get_str(args 0)) {
+        use dasu(strings::concat("Error: directory '" use! util::rt_vec_get_str(args 0) "' already exists"))
         return 1
     }
 
     /! Create project structure !/
-    set bin_dir = name + "/bin"
-    use! util::mkdir_p(name + "/src")
+    set bin_dir = strings::concat(use! util::rt_vec_get_str(args 0) "/bin")
+    use! util::mkdir_p(strings::concat(use! util::rt_vec_get_str(args 0) "/src"))
     use! util::mkdir_p(bin_dir)
 
     /! Write owl.toml !/
-    set owl_toml = name + "/owl.toml"
-    set toml_content = use! new::minimal_owl_toml(name)
+    set owl_toml = strings::concat(use! util::rt_vec_get_str(args 0) "/owl.toml")
+    set toml_content = use! new::minimal_owl_toml(use! util::rt_vec_get_str(args 0))
     if !fs::write(owl_toml toml_content) {
         use dasu("Error: failed to write owl.toml")
         return 1
     }
 
     /! Write src/main.mire !/
-    set main_mire = name + "/src/main.mire"
-    set main_content = use! new::minimal_main(name)
+    set main_mire = strings::concat(use! util::rt_vec_get_str(args 0) "/src/main.mire")
+    set main_content = use! new::minimal_main(use! util::rt_vec_get_str(args 0))
     if !fs::write(main_mire main_content) {
         use dasu("Error: failed to write src/main.mire")
         return 1
     }
 
-    use dasu("Created project '" + name + "':")
-    use dasu("  " + name + "/")
+    use dasu(strings::concat("Created project '" use! util::rt_vec_get_str(args 0) "':"))
+    use dasu(strings::concat("  " use! util::rt_vec_get_str(args 0) "/"))
     use dasu("  ├── owl.toml")
     use dasu("  ├── bin/")
     use dasu("  └── src/")

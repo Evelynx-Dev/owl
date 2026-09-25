@@ -466,21 +466,11 @@ pub fn clean: (args :&vec[str]) {
     }
 }
 
-pub fn load_cmd: (args :&vec[str]) {
-    /! Scan source files for load statements and inject missing deps into owl.toml !/
-    if !use! util::has_project() {
-        use dasu("Error: no owl.toml found")
-        return
-    }
-    use! check::loads()
-    use dasu("  [OK]   missing loads injected and lockfile regenerated")
-}
-
 pub fn deps: (args :&vec[str]) {
     /! Print dependency tree !/
     if !use! util::has_project() {
         use dasu("Error: no owl.toml found")
         return
     }
-    use! check::run(args)
+    use dasu("deps command not yet implemented")
 }

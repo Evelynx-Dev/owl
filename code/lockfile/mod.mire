@@ -186,12 +186,12 @@ set pos = 0 :i64 mut
         while running {
             set remaining = strings::substr(names pos gen_nlen - pos)
             set nl_c = strings::index(remaining "\n")
-            if nl < 0 {
+            if nl_c < 0 {
                 if use! util::trim(remaining) != "" { set count += 1 }
                 set running = false
             } else {
-                if use! util::trim_substr(names pos nl) != "" { set count += 1 }
-                set pos = pos + nl + 1
+                if use! util::trim_substr(names pos nl_c) != "" { set count += 1 }
+                set pos = pos + nl_c + 1
                 if pos >= gen_nlen { set running = false }
             }
         }
@@ -425,7 +425,7 @@ set sha_main = use! util::sha256sum_hex("owl.toml")
                     if language != "" { set entry = entry + "language = \"" + language + "\"\n" }
                     set entries = vec::push::str(entries entry)
                 }
-                if nl < 0 { set running = false }
+                if nl_c < 0 { set running = false }
             }
             
             /! Build both content strings from entries !/
@@ -786,7 +786,7 @@ pub fn install_one: (pkg_name :str pkg_ver :str registry_name :str) {
     set curl_args = vec::push::str(curl_args "-o")
     set curl_args = vec::push::str(curl_args strings::copy(tarball_file))
     set curl_args = vec::push::str(curl_args strings::copy(tarball_url))
-    use proc::run_output("curl" curl_args)
+    set curl_out = rt_proc_capture_argv("curl" curl_args)
 
     if !fs::exists(tarball_file) {
         use dasu("  [FAIL] " + pkg_name + ": download failed")
