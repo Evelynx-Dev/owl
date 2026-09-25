@@ -1,3 +1,11 @@
+## [1.2.1] - 2026-09-26
+
+### Fixed
+- **kioto proc::run compatibility** — Updated owl to work with kioto 2.5.1 which restores `proc::run::{output,spawn,output_cwd,last_exit,read_line}` submodule used by existing tests and projects.
+
+### Changed
+- **Dependency bump** — kioto dependency updated to 2.5.1 in default `owl.toml` template.
+
 ## [1.2.0] - 2026-09-25
 
 ### Added
