@@ -373,11 +373,13 @@ set grep_pattern = "^name = \"" + pkg_name + "\""
     }
 
     if ec == 0 {
-        set meta_path = use! util::owl_home_libs() + "/" + pkg_name + "/meta.toml"
-        use! util::mkdir_p(use! util::owl_home_libs() + "/" + pkg_name)
+        set ver_dir = use! util::owl_home_lib_versioned(pkg_name pkg_ver)
+        set destination = ver_dir
+        set ver_dir_for_meta = strings::copy(ver_dir)
+        set meta_path = ver_dir_for_meta + "/meta.toml"
+        use! util::mkdir_p(ver_dir)
 
         use dasu("  extracting...")
-        set destination = use! util::owl_home_libs() + "/" + pkg_name
         if owl_archive_extract(tarball_file destination) != 0 {
             use dasu("  error: libarchive/zstd extraction failed")
             set ec = 1 :u8
@@ -385,17 +387,29 @@ set grep_pattern = "^name = \"" + pkg_name + "\""
 
         if ec == 0 && !fs::exists(meta_path) {
             use dasu("  writing metadata...")
+            set pkg_name_copy = strings::copy(pkg_name)
+            set pkg_ver_copy = strings::copy(pkg_ver)
             set meta = "[package]\n" :str mut
-            set meta = meta + "name = \"" + pkg_name + "\"\n"
-            set meta = meta + "version = \"" + pkg_ver + "\"\n"
+            set meta = meta + "name = \"" + pkg_name_copy + "\"\n"
+            set meta = meta + "version = \"" + pkg_ver_copy + "\"\n"
             set meta = meta + "compiler = \"" + use! util::compiler_cmd() + "\"\n"
             set meta = meta + "abi = " + use! util::abi_version() + "\n"
             set meta = meta + "language = \"" + use! util::language_version() + "\"\n"
-            use fs::write(use! util::owl_home_libs() + "/" + pkg_name + "/meta.toml" meta)
+            use fs::write(meta_path meta)
         }
 
-        use! util::fs_make_readonly(use! util::owl_home_libs() + "/" + pkg_name)
-        set installed_path = use! util::owl_home_libs() + "/" + pkg_name
+        use! util::fs_make_readonly(ver_dir)
+        
+        /! Create/update active symlink <name> -> <name>@<ver> !/
+        set active_link = use! util::owl_home_lib_active(pkg_name)
+        if fs::exists(active_link) { fs::remove(active_link) }
+        set ln_args = [] :vec[str] mut
+        set ln_args = vec::push::str(ln_args "-sf")
+        set ln_args = vec::push::str(ln_args pkg_name + "@" + pkg_ver)
+        set ln_args = vec::push::str(ln_args active_link)
+        use proc::run_output("ln" ln_args)
+        
+        set installed_path = ver_dir
         set verified = true :bool mut
         if no_verify { set verified = false }
         set cfg_name = strings::copy(pkg_name)
@@ -413,15 +427,9 @@ set grep_pattern = "^name = \"" + pkg_name + "\""
 
 pub fn clone: (name :str version :str repo :str ref_val :str commit_val :str) :u8 {
     set ec = 0 :u8 mut
-    set libs_dir = use! util::owl_home_libs()
-    set libs_dir_copy = strings::copy(libs_dir)
-    use! util::mkdir_p(libs_dir)
-    set dest = libs_dir_copy + "/" + name
-    set dest_copy = strings::copy(dest)
-    if fs::exists(strings::copy(dest_copy)) {
-        set cleanup_path = strings::copy(dest_copy)
-        use! util::rm_RF(cleanup_path)
-    }
+    set ver_dir = use! util::owl_home_lib_versioned(name version)
+    set ver_dir_copy = strings::copy(ver_dir)
+    use! util::mkdir_p(ver_dir_copy)
 
     use dasu("  cloning " + repo + " ...")
     set clone_url = repo :str mut
@@ -441,7 +449,7 @@ pub fn clone: (name :str version :str repo :str ref_val :str commit_val :str) :u
         set git_args = vec::push::str(git_args strings::copy(ref_val))
     }
     set git_args = vec::push::str(git_args strings::copy(clone_url))
-    set git_args = vec::push::str(git_args strings::copy(dest_copy))
+    set git_args = vec::push::str(git_args ver_dir_copy)
     use proc::run_output("git" git_args)
     if use proc::run_last_exit() != 0 {
         use dasu("  error: git clone failed")
@@ -451,12 +459,12 @@ pub fn clone: (name :str version :str repo :str ref_val :str commit_val :str) :u
     if commit_val != "" {
         set rev_args = [] :vec[str] mut
         set rev_args = vec::push::str(rev_args "-C")
-        set rev_args = vec::push::str(rev_args strings::copy(dest_copy))
+        set rev_args = vec::push::str(rev_args ver_dir_copy)
         set rev_args = vec::push::str(rev_args "rev-parse")
         set rev_args = vec::push::str(rev_args "HEAD")
-        set head = use! util::extract_git_head(rev_args dest_copy)
+        set head = use! util::extract_git_head(rev_args ver_dir_copy)
         if head != commit_val {
-            set cleanup_path2 = strings::copy(dest_copy)
+            set cleanup_path2 = ver_dir_copy
             use! util::rm_RF(cleanup_path2)
             use dasu("  error: cloned commit " + head + " does not match pinned commit " + commit_val)
             return 1 :u8
@@ -464,8 +472,8 @@ pub fn clone: (name :str version :str repo :str ref_val :str commit_val :str) :u
         use dasu("  commit " + head + " verified")
     }
 
-    set meta_path = strings::copy(dest_copy) + "/meta.toml"
-    if !fs::exists(strings::copy(meta_path)) {
+    set meta_path = ver_dir_copy + "/meta.toml"
+    if !fs::exists(meta_path) {
         use dasu("  writing metadata...")
         set meta = "[package]\n" :str mut
         set meta = meta + "name = \"" + name + "\"\n"
@@ -476,8 +484,17 @@ pub fn clone: (name :str version :str repo :str ref_val :str commit_val :str) :u
         use fs::write(meta_path meta)
     }
 
-    set readonly_dest = strings::copy(dest_copy)
-    use! util::fs_make_readonly(readonly_dest)
+    use! util::fs_make_readonly(ver_dir_copy)
+    
+    /! Create/update active symlink <name> -> <name>@<ver> !/
+    set active_link = use! util::owl_home_lib_active(name)
+    if fs::exists(active_link) { fs::remove(active_link) }
+    set ln_args = [] :vec[str] mut
+    set ln_args = vec::push::str(ln_args "-sf")
+    set ln_args = vec::push::str(ln_args name + "@" + version)
+    set ln_args = vec::push::str(ln_args active_link)
+    use proc::run_output("ln" ln_args)
+    
     use dasu("  installed " + name + " v" + version + " (clone from " + repo + ")")
     return ec
 }

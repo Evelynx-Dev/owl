@@ -424,12 +424,36 @@ pub fn owl_home_cache_tarballs: () :str {
     return use! util::owl_home() + "/cache/tarballs"
 }
 
-pub fn owl_home_cache_resolution: () :str {
-    return use! util::owl_home() + "/cache/registry/resolution.toml"
-}
-
 pub fn owl_home_keys: () :str {
     return use! util::owl_home() + "/keys"
+}
+
+pub fn owl_home_cache_reg: () :str {
+    return use! util::owl_home() + "/cache/reg"
+}
+
+pub fn owl_home_cache_index: () :str {
+    return use! util::owl_home() + "/cache/index"
+}
+
+pub fn owl_home_cache_project: (name :str) :str {
+    return use! util::owl_home() + "/cache/project/" + name
+}
+
+pub fn owl_home_lib_versioned: (name :str, ver :str) :str {
+    return use! util::owl_home_libs() + "/" + name + "@" + ver
+}
+
+pub fn owl_home_lib_active: (name :str) :str {
+    return use! util::owl_home_libs() + "/" + name
+}
+
+pub fn owl_home_cache_resolution: (sha :str) :str {
+    return use! util::owl_home() + "/cache/resolution/" + sha
+}
+
+pub fn owl_home_cache_resolution_file: () :str {
+    return use! util::owl_home() + "/cache/resolution.toml"
 }
 
 /! Version and compiler info !/

@@ -31,6 +31,7 @@ load! export
 load! gc
 load! profile
 load! upgrade
+load! /code/new
 
 pub fn main: () {
     set args = env_args()
@@ -48,7 +49,7 @@ pub fn main: () {
         "info" { use! info::run(args) }
         "checkup" { use! check::checkup(args) }
         "profile" { use! profile::run(args) }
-        "new" { use! deps::new(args) }
+        "new" { use! new::run(args) }
         "clean" { use! deps::clean(args) }
         "load" { use! deps::load_cmd(args) }
         "install" { use! install::run_simple(args) }

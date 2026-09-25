@@ -53,7 +53,7 @@ pub fn help: () {
     use dasu("  --fix <field>  repair project fields:")
     use dasu("                 name, version, description, entry, profile,")
     use dasu("                 opt-level, compiler, output, cache, sources, tests,")
-    use dasu("                 loads, deps")
+    use dasu("                 loads, deps, lock")
     use dasu("")
     use dasu("Without diagnostic flags, runs all checks.")
     use dasu("")
@@ -61,9 +61,11 @@ pub fn help: () {
     use dasu("  owl checkup                    full project diagnostic")
     use dasu("  owl checkup --cache            check cache only")
     use dasu("  owl checkup --deps             check dependencies only")
+    use dasu("  owl checkup --loads            check load statements only")
     use dasu("  owl checkup --fix loads        scan sources and inject missing deps")
     use dasu("  owl checkup --fix deps         resolve missing dependency paths")
     use dasu("  owl checkup --fix cache        clean build cache")
+    use dasu("  owl checkup --fix lock         restore owl.lock from cache")
 }
 
 /! Main checkup command !/
@@ -141,16 +143,24 @@ pub fn checkup: (args :&vec[str]) {
     if do_fix && fix_fields != "" {
         if use! util::has_project() {
             use dasu("")
-            if use! util::contains(fix_fields "loads") {
-                use! check::loads()
-            } else {
-                if use! util::contains(fix_fields "deps") {
-                    use! check::checkup_fix_deps()
+            if use! util::contains(fix_fields "lock") {
+                if use! lockfile::fix_lock() {
+                    use dasu("  [OK]   lockfile restored from cache")
                 } else {
-                    if use! util::contains(fix_fields "cache") {
-                        use! check::checkup_fix_cache()
+                    use dasu("  [FAIL] could not restore lockfile (no matching cache or manifest mismatch)")
+                }
+            } else {
+                if use! util::contains(fix_fields "loads") {
+                    use! check::loads()
+                } else {
+                    if use! util::contains(fix_fields "deps") {
+                        use! check::checkup_fix_deps()
                     } else {
-                        use! check::regenerate(fix_fields)
+                        if use! util::contains(fix_fields "cache") {
+                            use! check::checkup_fix_cache()
+                        } else {
+                            use! check::regenerate(fix_fields)
+                        }
                     }
                 }
             }
