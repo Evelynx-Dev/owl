@@ -1,5 +1,6 @@
 module lockfile
 
+load mire::vec
 load! /code/util
 load! /code/_externs
 
@@ -424,7 +425,7 @@ set sha_main = use! util::sha256sum_hex("owl.toml")
                     if language != "" { set entry = entry + "language = \"" + language + "\"\n" }
                     set entries = vec::push::str(entries entry)
                 }
-                if nl_c < 0 { set running = false }
+                if nl3 < 0 { set running = false }
             }
             
             /! Build both content strings from entries !/

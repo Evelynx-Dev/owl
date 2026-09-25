@@ -1,5 +1,6 @@
 module cfg
 
+load mire::vec
 load! /code/_externs
 
 /! Global config file path !/
@@ -90,13 +91,13 @@ pub fn list_global: () {
 
 /! Main entry point !/
 pub fn run: (args :&vec[str]) :i64 {
-    set n = use! util::rt_vec_len(args)
+    set n = vec::len(args)
     if n == 0 {
         use! cfg::list_global()
         return 0
     }
 
-    set cmd = use! util::rt_vec_get_str(args 0)
+    set cmd = vec::get::str(args 0)
     set is_project = false :bool mut
     set write_mode = false :bool mut
     set arg_start = 1 :i64 mut
@@ -104,7 +105,7 @@ pub fn run: (args :&vec[str]) :i64 {
     /! Check for --project and --write flags !/
     set i = 1 :i64 mut
     while i < n {
-        set arg = use! util::rt_vec_get_str(args i)
+        set arg = vec::get::str(args i)
         if arg == "--project" { set is_project = true }
         if arg == "--write" { set write_mode = true }
         set i += 1
@@ -120,7 +121,7 @@ pub fn run: (args :&vec[str]) :i64 {
             use dasu("Usage: owl cfg get <key> [--project]")
             return 1
         }
-        set key = use! util::rt_vec_get_str(args 1)
+        set key = vec::get::str(args 1)
         if is_project {
             set val = use! cfg::get_project(key)
             if val != "" { use dasu(key + " = " + val) } else { use dasu(key + " = (not set)") }
@@ -134,8 +135,8 @@ pub fn run: (args :&vec[str]) :i64 {
             use dasu("Usage: owl cfg set <key> <value> [--project]")
             return 1
         }
-        set key = use! util::rt_vec_get_str(args 1)
-        set value = use! util::rt_vec_get_str(args 2)
+        set key = vec::get::str(args 1)
+        set value = vec::get::str(args 2)
         set ok = false :bool mut
         if is_project {
             set ok = use! cfg::set_project(key value)

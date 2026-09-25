@@ -1,5 +1,6 @@
 module deps
 
+load mire::vec
 load! /code/util
 load! /code/dep_resolver
 
@@ -271,7 +272,7 @@ pub fn gather_latest_libs: () :str {
     set i = 0 :i64 mut
     set n = len(entries)
     while i < n {
-        set name = rt_vec_get_str(entries i)
+        set name = vec::get::str(entries i)
         if name != "mire" && name != "" {
             /! Look for versioned directory <name>@<ver> !/
             set ver_dir = lib_dir + "/" + name + "@"
@@ -282,7 +283,7 @@ pub fn gather_latest_libs: () :str {
             set lib_n = len(lib_entries)
             set found_ver = "" :str mut
             while j < lib_n {
-                set lib_name = rt_vec_get_str(lib_entries j)
+                set lib_name = vec::get::str(lib_entries j)
                 if use! util::startswith(lib_name name + "@") {
                     set found_ver = strings::substr(lib_name len(name) + 1 9999)
                     set j = lib_n /! break

@@ -1,7 +1,10 @@
 module check
 
+load mire::vec
 load! /code/util
+load kioto::proc
 load! /code/deps
+load kioto::proc
 load! /code/lockfile
 
 /! Regenerate owl.toml with defaults for specified fields !/
@@ -70,11 +73,11 @@ pub fn help: () {
 
 /! Main checkup command !/
 pub fn checkup: (args :&vec[str]) {
-    set n = rt_vec_len(args)
+    set n = vec::len(args)
 
     set i = 1 :i64 mut
     while i < n {
-        set a = rt_vec_get_str(args i)
+        set a = vec::get::str(args i)
         if a == "--help" || a == "-h" {
             use! check::help()
             return
@@ -91,7 +94,7 @@ pub fn checkup: (args :&vec[str]) {
 
     set i = 2 :i64 mut
     while i < n {
-        set a = rt_vec_get_str(args i)
+        set a = vec::get::str(args i)
         if a == "--fix" {
             set do_fix = true
         } else {
@@ -871,9 +874,9 @@ pub fn run_tests: (args :&vec[str]) {
 
     /! Pass through any test-specific flags !/
     set i = 1 :i64 mut
-    set n = rt_vec_len(args)
-    while i < rt_vec_len(args) {
-        set a = rt_vec_get_str(args i)
+    set n = vec::len(args)
+    while i < vec::len(args) {
+        set a = vec::get::str(args i)
         if use! util::startswith(a "-") {
             set argv = vec::push::str(argv strings::copy(a))
         }

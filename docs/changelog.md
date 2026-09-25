@@ -1,3 +1,35 @@
+## [1.2.3] - 2026-09-26
+
+### Fixed
+- **Path dependencies were never written to the lockfile** — `dep_resolver::resolve()` skipped
+  every dep that was absent from the registry index (`version == ""` → `continue`), so a project
+  whose deps are all `path = ...` got a lock with zero `[[package]]` entries. `lockfile::in_sync()`
+  compares locked packages against declared deps, so the lock was permanently out of sync and
+  **every** command re-resolved dependencies and exited without doing any work. Local/path deps
+  are now recorded with `registry = "local"`, their declared path, and their pinned version when
+  `owl.toml` declares one (new `dep_resolver::declared_dep_field()` helper, deliberately local to
+  avoid a `deps` ↔ `dep_resolver` load cycle).
+- **Lockfile entry alignment** — `lockfile::packages()` and `get_field()` match column-aligned
+  keys (`name␣␣␣␣␣=`, `version␣␣=`, `path␣␣␣␣␣=`, `registry␣=`), but `dep_resolver` wrote
+  single-space keys — so the writer produced locks its own reader could not parse, and its
+  "already locked?" search key never matched. Writers and search keys now use the aligned format.
+- **`[c] sources` accepted a `.mire` file** — `owl.toml` listed `code/_externs/mod.mire` as a C
+  source, which the C compiler then tried to build, failing every `owl test` target with
+  `Could not publish C object ... No such file or directory`. It is a Mire module and is compiled
+  by the Mire compiler; removed from `[c] sources`.
+- **Undefined identifier in `lockfile::generate()`** — a typo (`nl_c` for `nl3`) referenced an
+  undeclared name, which reached LLVM as `@nl_c` and aborted `opt` with
+  `use of undefined value '@nl_c'`.
+- **Undefined identifier in `new`** — the final confirmation messages interpolated an undeclared
+  `name`; now `vec::get::str(args 0)`.
+
+### Changed
+- **Ownership (MSS) fixes across 15 modules** — `dep_resolver` now copies loop-invariant
+  `:str` values (`strings::copy`) before reuse, `util::mkdir_p` takes `&str`, and the vector
+  externs were replaced by the public `mire::vec` API (`vec::len`, `vec::get::str`) with explicit
+  `load mire::vec` per consuming module. Each module that calls `proc::` now declares
+  `load kioto::proc` itself: reachable-import selection does not inherit another module's loads.
+
 ## [1.2.2] - 2026-09-26
 
 ### Changed

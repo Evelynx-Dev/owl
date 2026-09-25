@@ -1,6 +1,8 @@
 module registry
 
+load mire::vec
 load! /code/util
+load kioto::proc
 load! /code/trust
 
 pub fn add: (url :str) {

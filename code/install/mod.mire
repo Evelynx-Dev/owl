@@ -1,9 +1,14 @@
 module install
 
+load mire::vec
 load! /code/util
+load kioto::proc
 load! /code/semver
+load kioto::proc
 load! /code/lockfile
+load kioto::proc
 load! /code/dep_resolver
+load kioto::proc
 load! /code/_externs
 
 pub fn run: (has_l :bool has_t :bool no_verify :bool force :bool target_val :str yes :bool name :str ver :str has_lock :bool) :u8 {

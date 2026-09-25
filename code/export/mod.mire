@@ -1,7 +1,10 @@
 module export
 
+load mire::vec
 load! /code/util
+load kioto::proc
 load! /code/args
+load kioto::proc
 load! /code/_externs
 
 pub fn run: (args :&vec[str]) {

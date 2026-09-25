@@ -200,7 +200,7 @@ pub fn toml_set: (file :str section :str key :str value :str) :bool {
 pub fn extract_git_head: (args :vec[str] dest :&str) :str {
     // Execute git rev-parse HEAD and return the commit hash
     // This replaces util::trim_command("git" args) with native string parsing
-    set output = use! _externs::rt_proc_capture_argv("git" args)
+    set output = rt_proc_capture_argv("git" args)
     set head = strings::trim(output)
     // Validate it's a valid hex commit hash (40 chars)
     if len(head) == 40 { return head }
@@ -215,7 +215,7 @@ pub fn extract_install_status: (output :&str) :bool {
 }
 
 /! Filesystem operations !/
-pub fn mkdir_p: (path :str) {
+pub fn mkdir_p: (path :&str) {
     if path == "" || path == "." { return }
     set absolute = use! util::startswith(path "/")
     set parts = strings::split(path "/")
@@ -453,7 +453,7 @@ pub fn owl_version: () :str {
 
 pub fn compiler_version: () :str {
     set ver = "" :str mut
-    set v = use! _externs::rt_proc_capture_argv(use! util::compiler_cmd() ["--version"])
+    set v = rt_proc_capture_argv(use! util::compiler_cmd() ["--version"])
     if v != "" {
         set ver = v
     } else {
@@ -536,7 +536,7 @@ pub fn compiler_cmd: () :str {
 pub fn run_compiler: (args :vec[str]) :str {
     set mire = use! util::compiler_cmd()
     use dasu("[DEBUG] run_compiler: mire=" + mire + " args=" + strings::join(args " "))
-    return use! _externs::rt_proc_capture_argv(mire args)
+    return rt_proc_capture_argv(mire args)
 }
 
 pub fn config_required: (section :str key :str) :str {
@@ -582,13 +582,13 @@ pub fn config_default: (section :str key :str default :str) :str {
 // compiler-facing options that must be represented in the normalized Mire
 // configuration instead of being appended ambiguously to a command string.
 pub fn arg_value: (args :&vec[str], flag :&str) :str {
-    set n = use! _externs::rt_vec_len(args)
+    set n = vec::len(args)
     set result = "" :str mut
     set i = 0 :i64 mut
     while i < n {
-        set item = use! _externs::rt_vec_get_str(args i)
+        set item = vec::get::str(args i)
         if item == flag && i + 1 < n {
-            set result = use! _externs::rt_vec_get_str(args i + 1)
+            set result = vec::get::str(args i + 1)
         }
         set i += 1
     }
@@ -830,8 +830,8 @@ pub fn path_exists: (path :&str) :bool { return fs::exists(path) }
 pub fn copy_value: (value :&str) :str { return strings::copy(value) }
 pub fn trim_value: (value :str) :str { return strings::trim(value) }
 pub fn str_equals: (a :&str, b :&str) :bool { return a == b }
-pub fn read_line_trim: () :str { return strings::trim(use! _externs::rt_read_tty()) }
-pub fn read_line: () :str { return use! _externs::rt_read_tty() }
+pub fn read_line_trim: () :str { return strings::trim(rt_read_tty()) }
+pub fn read_line: () :str { return rt_read_tty() }
 pub fn trim_substr: (s :&str, start :i64, length :i64) :str { return strings::trim(strings::substr(s start length)) }
 pub fn substr_i64: (s :&str, start :i64, length :i64) :i64 { return use! util::string_to_i64(strings::substr(s start length)) }
 
@@ -928,8 +928,8 @@ pub fn scan_load_packages: () :str {
     return scan_load_tree("tests" result)
 }
 
-pub fn string_to_i64: (s :str) :i64 { return use! _externs::rt_string_to_i64(s) }
-pub fn i64_to_string: (v :i64) :str { return use! _externs::rt_i64_to_string(v) }
+pub fn string_to_i64: (s :str) :i64 { return rt_string_to_i64(s) }
+pub fn i64_to_string: (v :i64) :str { return rt_i64_to_string(v) }
 
 /! Record a successful build in ~/.owl/cache/build_status.toml so
    `owl profile` can report real build counts and last-build time. !/

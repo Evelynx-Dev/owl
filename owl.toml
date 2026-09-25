@@ -1,6 +1,6 @@
 [project]
 name = "owl"
-version = "1.2.2"
+version = "1.2.3"
 description = "Package and project manager for the Mire (Avenys) language"
 entry = "code/main.mire"
 
@@ -57,7 +57,7 @@ testlib = { path = "~/.owl/libs/testlib" }
 crypto = { path = "./code/crypto" }
 
 [c]
-sources = ["native/archive.c", "code/_externs/mod.mire"]
+sources = ["native/archive.c"]
 libs = ["archive", "zstd"]
 
 ["owl@lock"]
