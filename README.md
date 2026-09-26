@@ -99,13 +99,23 @@ owl test --no-run     # compile only
 
 Flags are forwarded to `mire test`; see `--help` for the full list.
 
-> **Library packages: use `mire test` directly.** `owl test` resolves the
-> artifact from `[build] artifact` and passes it through, so a package that
-> declares `artifact = "shared"` gets a shared object instead of a test
-> executable. Every test file is then reported `ok` having run no assertion at
-> all. This affects `kioto`, `mire`, `sdl`, `sqlite` and `blu`, all of which
-> publish libraries. A project on the default `bin` artifact is unaffected.
-> Tracked in [docs/changelog.md](docs/changelog.md) under 1.2.4.
+**Testing ignores the artifact.** `owl test` always builds an executable, whatever
+`[build] artifact` says, because a test needs an entry point to run from and a
+package's published form is no business of its test suite. This is enforced on
+both sides: owl does not forward a library artifact, and the compiler normalizes
+one away if it is configured that way anyway. A manifest declaring
+`runtime = "none"` is likewise lifted to `minimal` for the test build, since a
+test needs the runtime to run on. An explicit `--runtime` is left alone.
+
+Before this, every library package in the tree — `kioto`, `mire`, `sdl`, `sqlite`
+and `blu` — got a shared object instead of a test executable, and each test file
+was reported `ok` having run no assertion. See
+[docs/changelog.md](docs/changelog.md) under 1.2.4.
+
+> One caveat that is *not* fixed: a file with several `@[test]` functions reports
+> all of them as failed when any one fails. The count is deliberately
+> conservative, so a red suite is never understated — but `Failed: 11` does not
+> mean eleven broken tests.
 
 ## checkup Command — Diagnostics & Repair
 

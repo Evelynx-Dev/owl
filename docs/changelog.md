@@ -1,20 +1,5 @@
 ## [1.2.4] - 2026-09-26
 
-### Known issues
-- **`owl test` runs nothing for any package that declares `artifact = "shared"`** — reported as
-  `ok` for every test file, having executed no assertion. `build::test_config()` resolves the
-  artifact from `[build] artifact` (defaulting to `bin`) and passes it to the compiler, so a
-  library produces a shared object with no test entry point instead of a test executable. The
-  green is a build success, not a test result. This reaches every library package in the tree:
-  `kioto`, `mire`, `sdl`, `sqlite` and `blu` all set `artifact = "shared"`, so `owl test` is
-  currently a no-op in all five. Confirmed by substituting a deliberately false assertion and
-  clearing both `bin/.cache` and `tests/log`: `owl test` reported `Ok: 16 - Passed: 16`, while
-  `mire test` reported `FAILED`. The same experiment in a project whose manifest uses the
-  default `bin` artifact fails correctly under `owl`, which is what isolates it to the artifact
-  path rather than to the flag passthrough. Until it is fixed, gate library packages on
-  `mire test` directly. `test_config()` should force a `bin` artifact, since a test needs an
-  executable regardless of what the package publishes.
-
 ### Added
 - **`owl test --release`** — the `test` subcommand had no entry in the allowed-flags table at
   all, so it rejected *every* flag and printed an empty "available flags" list. It now accepts
@@ -34,6 +19,29 @@
   `run_spawn` names were replaced by the namespaced `proc::run::output` / `::output_cwd` /
   `::last_exit` / `::spawn` form used across the rest of the library. 56 call sites in
   `code/` and `tests/` were migrated.
+- **`owl test` ran nothing for any library package** — every test file was reported `ok` having
+  executed no assertion. `build::test_config()` resolved the artifact from `[build] artifact`
+  (defaulting to `bin`) and forwarded it, so a package declaring `artifact = "shared"` was built
+  as a shared object with no test entry point. The green was a build success, not a test result,
+  and it reached every library package in the tree: `kioto`, `mire`, `sdl`, `sqlite` and `blu`
+  all set that artifact. `test_config()` now always builds a `bin`; owl resolves the project, it
+  does not decide how a test is built. A manifest declaring `runtime = "none"` is lifted to
+  `minimal` for the test build, since a test needs the runtime to run on, while an explicit
+  `--runtime` is left alone.
+
+  Found by deliberately breaking an assertion in a library package: with `bin/.cache` and
+  `tests/log` cleared, `owl test` reported `Ok: 16 - Passed: 16` where `mire test` reported
+  `FAILED`. After the fix the same experiment reports `Failed: 11` under both runners. The
+  companion fix is in the compiler, which normalizes a library artifact away even when driven
+  directly with a manifest that asks for one, so the guarantee does not depend on which tool is
+  invoked.
+
+### Documentation
+
+README gains a Testing section — the command table listed every command except the one used most
+— documenting the flag forwarding, the artifact independence described above, and the one runner
+caveat that remains: a file with several `@[test]` functions reports all of them as failed when
+any one fails, so the count overstates rather than understates.
 
 ## [1.2.3] - 2026-09-26
 

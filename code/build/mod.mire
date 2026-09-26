@@ -66,19 +66,28 @@ pub fn test_config: (args :&vec[str]) :str {
     set requested_opt = use! util::arg_value(args "--opt-level")
     if requested_opt != "" { set opt = requested_opt }
 
-set entry = use! util::config_required("project" "entry")
-    set artifact = use! util::arg_value(args "--artifact") :str mut
-    if artifact == "" { 
-        set artifact = use! util::config_default("build" "artifact" "bin") 
-    }
-    use dasu("[DEBUG] build: artifact resolved to [" + artifact + "]")
+    set entry = use! util::config_required("project" "entry")
+// ----- owl resolves, it does not decide. A test needs an executable, and what
+// ----- a project publishes is irrelevant to that, so the artifact the
+// ----- manifest declares is not consulted here. Forwarding it was how a
+// ----- library declaring artifact = "shared" ended up building a shared
+// ----- object with no test entry point: every test file was reported ok having
+// ----- run no assertion, across all five library packages in the tree. The
+// ----- compiler enforces the same rule for anyone who drives it directly; this
+// ----- keeps owl from handing it a manifest to override.
+    set artifact = "bin"
 // ----- owl writes a normalized mire config per artifact; the tier and target
 // ----- must still honor the project's owl.toml so full-tier projects (e.g.
 // ----- the avenys test suite) don't silently regress to "minimal".
 set runtime = use! util::arg_value(args "--runtime") :str mut
 if runtime == "" {
     set runtime = use! util::config_default("build" "runtime" "minimal")
+// ----- A test needs the runtime to run on, so a manifest declaring
+// ----- runtime = "none" is lifted to "minimal" here. An explicit --runtime is
+// ----- left alone: the caller asked for that tier by name.
+    if runtime == "none" { set runtime = "minimal" }
 }
+
     set target = use! util::arg_value(args "--target") :str mut
     if target == "" { set target = "x86_64-unknown-linux-gnu" }
     set output = use! util::config_required("paths" "output")
