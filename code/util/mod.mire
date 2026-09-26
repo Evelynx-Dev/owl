@@ -448,7 +448,13 @@ pub fn owl_home_cache_resolution_file: () :str {
 
 /! Version and compiler info !/
 pub fn owl_version: () :str {
-    return "1.1.2"
+    /! The manifest is the single source of truth for the version; the constant
+    is only a fallback for when owl runs outside a project directory. !/
+    set v = use! util::toml_get("owl.toml" "project" "version")
+    if v != "" {
+        return v
+    }
+    return "1.2.4"
 }
 
 pub fn compiler_version: () :str {
@@ -535,7 +541,6 @@ pub fn compiler_cmd: () :str {
    passes only the compiler arguments. !/
 pub fn run_compiler: (args :vec[str]) :str {
     set mire = use! util::compiler_cmd()
-    use dasu("[DEBUG] run_compiler: mire=" + mire + " args=" + strings::join(args " "))
     return rt_proc_capture_argv(mire args)
 }
 
@@ -562,19 +567,15 @@ pub fn config_required: (section :str key :str) :str {
    build policies like ``[build] runtime`` that must not hardcode
    avenys' fallback tier. !/
 pub fn config_default: (section :str key :str default :str) :str {
-    use! fs::write("/tmp/config_default_debug.txt" "CONFIG_DEFAULT: section=" + section + " key=" + key + " default=" + default + " has_project=" + (if use! util::has_project() { "true" } else { "false" }))
     set val = default :str mut
     if use! util::has_project() {
-        use! fs::write("/tmp/config_default_debug.txt" "CONFIG_DEFAULT: has_project=true")
         set s = section
         set k = key
         set v = use! util::toml_get("owl.toml" s k)
-        use! fs::write("/tmp/config_default_debug.txt" "CONFIG_DEFAULT: toml_get returned=[" + v + "]")
         if v != "" {
             set val = v
         }
     }
-    use! fs::write("/tmp/config_default_debug.txt" "CONFIG_DEFAULT returning: [" + val + "]")
     return val
 }
 
@@ -598,9 +599,7 @@ pub fn arg_value: (args :&vec[str], flag :&str) :str {
 pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :str runtime :str target :str output :str cache :str libs :str) :bool {
     use fs::write("/tmp/mire_write_mire_config_called.txt" "write_mire_config called with path=[" + path + "]\n")
     set artifact_copy = strings::copy(artifact)
-    use dasu("[DEBUG] write_mire_config: artifact=[" + artifact_copy + "] path=[" + path + "]")
     use! util::mkdir_p(strings::copy(fs::path::dir(path)))
-    use fs::write("write_mire_config_debug.txt" "write_mire_config called with path=[" + path + "]\n")
 
     set proj_name = use! util::toml_get("owl.toml" "project" "name") :str mut
     if proj_name == "" { set proj_name = "owl-managed" }
@@ -612,7 +611,6 @@ pub fn write_mire_config: (path :str entry :str profile :str opt :str artifact :
     if paths_test == "" { set paths_test = "tests" }
     set artifact_from_toml = use! util::config_default("build" "artifact" artifact)
 
-    use dasu("[DEBUG] write_mire_config: artifact=[" + artifact_copy + "]")
     use! util::mkdir_p(strings::copy(fs::path::dir(path)))
 
     set config = "" :str mut

@@ -5,50 +5,58 @@ load testlib
 pub fn main: () {
     use dasu("--- math ---")
 
-    testlib.assert_eq(5 math::abs(-5))
-    testlib.assert_eq(42 math::abs(42))
+    // The quick tier works in f64, so these are compared by tolerance.
+    testlib.assert_eq_f64(5.0 math::abs(0.0 - 5.0))
+    testlib.assert_eq_f64(42.0 math::abs(42.0))
     use dasu("  math.abs: ok")
 
-    testlib.assert_eq(3 math::min(3 7))
-    testlib.assert_eq(3 math::min(7 3))
+    testlib.assert_eq_f64(3.0 math::min(3.0 7.0))
+    testlib.assert_eq_f64(3.0 math::min(7.0 3.0))
     use dasu("  math.min: ok")
 
-    testlib.assert_eq(7 math::max(3 7))
-    testlib.assert_eq(7 math::max(7 3))
+    testlib.assert_eq_f64(7.0 math::max(3.0 7.0))
+    testlib.assert_eq_f64(7.0 math::max(7.0 3.0))
     use dasu("  math.max: ok")
 
-    testlib.assert_eq(1 math::clamp(1 0 5))
-    testlib.assert_eq(0 math::clamp(-1 0 5))
-    testlib.assert_eq(5 math::clamp(10 0 5))
+    testlib.assert_eq_f64(1.0 math::clamp(1.0 0.0 5.0))
+    testlib.assert_eq_f64(0.0 math::clamp(0.0 - 1.0 0.0 5.0))
+    testlib.assert_eq_f64(5.0 math::clamp(10.0 0.0 5.0))
     use dasu("  math.clamp: ok")
 
-    set r = math::range(5) :vec[i64]
-    testlib.assert_eq(5 len(r))
+    // The range builders moved to math::seq in 3.0 and are now pure Mire.
+    set r = math::seq::range(5)
+    testlib.assert_eq(5 vec::len(r))
     testlib.assert_eq(0 vec::get::i64(r 0))
     testlib.assert_eq(4 vec::get::i64(r 4))
-    use dasu("  math.range: ok")
+    use dasu("  math.seq.range: ok")
 
-    set rb = math::between(2 6) :vec[i64]
-    testlib.assert_eq(4 len(rb))
+    set rb = math::seq::between(2 6)
+    testlib.assert_eq(4 vec::len(rb))
     testlib.assert_eq(2 vec::get::i64(rb 0))
     testlib.assert_eq(5 vec::get::i64(rb 3))
-    use dasu("  math.between: ok")
+    use dasu("  math.seq.between: ok")
 
-    set rs = math::step(0 10 3) :vec[i64]
-    testlib.assert_eq(4 len(rs))
+    set rs = math::seq::step(0 10 3)
+    testlib.assert_eq(4 vec::len(rs))
     testlib.assert_eq(0 vec::get::i64(rs 0))
     testlib.assert_eq(9 vec::get::i64(rs 3))
-    use dasu("  math.step: ok")
+    use dasu("  math.seq.step: ok")
+
+    // The descending arms are the part 2.x had and a naive port drops.
+    set rd = math::seq::between(6 2)
+    testlib.assert_eq(4 vec::len(rd))
+    testlib.assert_eq(6 vec::get::i64(rd 0))
+    testlib.assert_eq(3 vec::get::i64(rd 3))
+    testlib.assert_eq(10 vec::len(math::seq::step(10 0 0 - 1)))
+    use dasu("  math.seq descending: ok")
 
     set nums = [5 2 8 1 9] :vec[i64]
     testlib.assert_eq(1 math::minlist(nums))
     testlib.assert_eq(9 math::maxlist(nums))
     use dasu("  math.minlist/max_list: ok")
 
-    testlib.assert_eq(25 math::sum(nums))
+    testlib.assert_eq_f64(25.0 math::sum(nums))
     use dasu("  math.sum: ok")
-
-
 
     use dasu("all math tests passed")
 }

@@ -103,8 +103,6 @@ if runtime == "" {
 }
 
 pub fn compile: (args :&vec[str] is_run :bool) {
-    use! fs::write("/tmp/build_debug.txt" "COMPILE FUNCTION CALLED")
-    use dasu("[DEBUG] compile called, is_run=" + (if is_run { "true" } else { "false" }))
     set is_proj = use! util::has_project() :bool mut
 
     set n = vec::len(args) :i64 mut
@@ -349,7 +347,6 @@ pub fn debug: (args :&vec[str]) {
         set argv = vec::push::str(argv strings::copy(cli_file))
         set argv = vec::push::str(argv "--lib-dir")
         set lib_dirs = use! deps::compiler_lib_dirs()
-        use dasu("[DEBUG] lib-dirs: " + lib_dirs)
         set argv = vec::push::str(argv lib_dirs)
         if extra_flags != "" {
             set toks = strings::split(extra_flags " ")
@@ -383,7 +380,6 @@ pub fn debug: (args :&vec[str]) {
     set argv = vec::push::str(argv strings::copy(file))
     set argv = vec::push::str(argv "--lib-dir")
     set lib_dirs = use! deps::compiler_lib_dirs()
-    use dasu("[DEBUG] lib-dirs: " + lib_dirs)
     set argv = vec::push::str(argv lib_dirs)
     if extra_flags != "" {
         set toks = strings::split(extra_flags " ")

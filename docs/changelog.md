@@ -35,6 +35,29 @@
   companion fix is in the compiler, which normalizes a library artifact away even when driven
   directly with a manifest that asks for one, so the guarantee does not depend on which tool is
   invoked.
+- **`owl --version`, `-V` and `--help` were all rejected** — flag validation scanned the argument
+  vector from index 0, so the subcommand token was validated as a flag of itself. `owl --version`
+  therefore reported `E0012: Unknown flag --version` against a subcommand named `--version`, with
+  an empty "available flags" list, even though `main` already dispatched all three to the banner
+  and the help text. Only the arguments after the subcommand are its flags, so the scan starts at
+  `argv[2]`. Regression test: `tests/test_owl_version.mire`, which asserts all three are answered
+  and none carries `E0012`.
+- **`owl --version` reported a stale version** — `util::owl_version()` returned a hardcoded
+  `"1.1.2"` while the manifest said `1.2.4`, so the banner understated the release it shipped in.
+  The version is now read from `[project] version` in `owl.toml`, keeping the manifest the single
+  source of truth, with the constant retained only as a fallback for running outside a project.
+- **`testlib::fail` printed no marker the runner could attribute** — it printed the reason and
+  returned, so a failing assertion exited 0 and the failure was lost. It now emits `  [FAIL]`
+  before the reason and exits non-zero. The marker attributes the failure to the file with a
+  readable reason; the exit code keeps the failure from being lost if the wording drifts again.
+- **`testlib::assert_eq_f64` was missing** — float comparisons had no helper, and a tolerance had
+  to be spelled out at every call site. Added, comparing against `epsilon * 4` scaled by the larger
+  magnitude so it is a relative tolerance that also holds near zero.
+- **Debug instrumentation left in the release path** — `code/build`, `code/check` and `code/util`
+  carried `[DEBUG]` tracing and unconditional writes to `/tmp/build_debug.txt`,
+  `/tmp/config_default_debug.txt`, `/tmp/owl_test_debug.txt` and a relative
+  `write_mire_config_debug.txt`, all of which landed in a user's working directory during a normal
+  build. Removed.
 
 ### Documentation
 

@@ -121,7 +121,11 @@ pub fn allowed_flags: (subcmd :&str) :vec[str] {
 pub fn validate: (subcmd :&str, args :&vec[str]) :bool {
     set allowed = use! args::allowed_flags(subcmd)
     set n = vec::len(args)
-    set i = 0 :i64 mut
+    /! argv[0] is the binary and argv[1] is the subcommand itself, so only the
+    arguments after it are flags of that subcommand. Starting the scan at 0 made
+    a top-level flag such as "owl --version" validate itself against the empty
+    flag list of a subcommand named "--version". !/
+    set i = 2 :i64 mut
     while i < n {
         set a = vec::get::str(args i)
         if use! util::startswith(a "-") {

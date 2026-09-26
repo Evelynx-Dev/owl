@@ -857,7 +857,6 @@ pub fn takes_value: (flag :&str) :bool {
 
 /! Run the compiler's test command with proper configuration !/
 pub fn run_tests: (args :&vec[str]) {
-    use fs::write("/tmp/owl_test_debug.txt" ">>> RUN_TESTS CALLED <<<\n")
     if !use! util::has_project() {
         use dasu("  [FAIL]  no owl.toml found")
         return
@@ -870,12 +869,10 @@ pub fn run_tests: (args :&vec[str]) {
 
     /! Generate test configuration (same as build does for tests) !/
     set test_config = use! build::test_config(args)
-    use dasu("[DEBUG] test config: " + test_config)
 
     /! Run the compiler's test command with proper flags !/
     set compiler = use! util::compiler_cmd()
     set lib_dir = use! deps::compiler_lib_dirs()
-    use dasu("[DEBUG] lib_dir: " + lib_dir)
 
     set argv = [] :vec[str] mut
     set argv = vec::push::str(argv "test")
@@ -904,7 +901,6 @@ pub fn run_tests: (args :&vec[str]) {
     }
 
     /! Run the compiler's test command !/
-    use dasu("[DEBUG] running test command: " + strings::join(argv " "))
     set out = use! proc::run::output(compiler argv)
     use dasu(out)
     if use proc::run::last_exit() != 0 {
