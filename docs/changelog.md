@@ -1,3 +1,25 @@
+## [1.2.4] - 2026-09-26
+
+### Added
+- **`owl test --release`** — the `test` subcommand had no entry in the allowed-flags table at
+  all, so it rejected *every* flag and printed an empty "available flags" list. It now accepts
+  the flags `mire test` itself understands (`--release`/`-r`, `--debug`/`-d`, `--opt-level`/`-O`,
+  `--jobs`/`-j`, `--lib-dir`/`-L`, `--config`, `--no-run`, `--no-warn`, `--no-categorize`,
+  `--cache`, `--cache-dir`, `--verbose`/`-v`, `--log`, `--help`/`-h`) and forwards them to the
+  compiler. `build::test_config()` already mapped `--release` to `profile = "release"` /
+  `opt-level = "3"`; only the validation gate was missing. Release test binaries now land in
+  `<output>/release/` instead of `<output>/debug/`.
+
+### Fixed
+- **Passthrough dropped flag values** — `check::run_tests()` forwarded only arguments starting
+  with `-`, so `-j 4` reached the compiler as a bare `-j` and it aborted with
+  `Missing value for --jobs`. Value-taking flags now carry their value across via the new
+  `check::takes_value()` helper.
+- **Broken proc API calls** — the `proc::run_output` / `run_output_cwd` / `run_last_exit` /
+  `run_spawn` names were replaced by the namespaced `proc::run::output` / `::output_cwd` /
+  `::last_exit` / `::spawn` form used across the rest of the library. 56 call sites in
+  `code/` and `tests/` were migrated.
+
 ## [1.2.3] - 2026-09-26
 
 ### Fixed
