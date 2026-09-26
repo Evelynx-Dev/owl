@@ -88,6 +88,25 @@ instead of a later `llvm-sys` linker failure.
 | `-V`, `--version` | Show version |
 | `-h`, `--help` | Show help |
 
+## Testing
+
+```bash
+owl test              # the whole suite
+owl test -j 8         # parallel
+owl test --release    # opt-level 3, binaries land in <output>/release/
+owl test --no-run     # compile only
+```
+
+Flags are forwarded to `mire test`; see `--help` for the full list.
+
+> **Library packages: use `mire test` directly.** `owl test` resolves the
+> artifact from `[build] artifact` and passes it through, so a package that
+> declares `artifact = "shared"` gets a shared object instead of a test
+> executable. Every test file is then reported `ok` having run no assertion at
+> all. This affects `kioto`, `mire`, `sdl`, `sqlite` and `blu`, all of which
+> publish libraries. A project on the default `bin` artifact is unaffected.
+> Tracked in [docs/changelog.md](docs/changelog.md) under 1.2.4.
+
 ## checkup Command — Diagnostics & Repair
 
 ```bash

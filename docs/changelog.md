@@ -1,5 +1,20 @@
 ## [1.2.4] - 2026-09-26
 
+### Known issues
+- **`owl test` runs nothing for any package that declares `artifact = "shared"`** — reported as
+  `ok` for every test file, having executed no assertion. `build::test_config()` resolves the
+  artifact from `[build] artifact` (defaulting to `bin`) and passes it to the compiler, so a
+  library produces a shared object with no test entry point instead of a test executable. The
+  green is a build success, not a test result. This reaches every library package in the tree:
+  `kioto`, `mire`, `sdl`, `sqlite` and `blu` all set `artifact = "shared"`, so `owl test` is
+  currently a no-op in all five. Confirmed by substituting a deliberately false assertion and
+  clearing both `bin/.cache` and `tests/log`: `owl test` reported `Ok: 16 - Passed: 16`, while
+  `mire test` reported `FAILED`. The same experiment in a project whose manifest uses the
+  default `bin` artifact fails correctly under `owl`, which is what isolates it to the artifact
+  path rather than to the flag passthrough. Until it is fixed, gate library packages on
+  `mire test` directly. `test_config()` should force a `bin` artifact, since a test needs an
+  executable regardless of what the package publishes.
+
 ### Added
 - **`owl test --release`** — the `test` subcommand had no entry in the allowed-flags table at
   all, so it rejected *every* flag and printed an empty "available flags" list. It now accepts
