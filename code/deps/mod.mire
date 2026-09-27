@@ -142,7 +142,13 @@ pub fn compiler_lib_dirs: () :str {
     /! Avenys receives real filesystem paths, not the display form
        `~/.owl/libs`. Keeping the expansion here also makes local path
        dependencies reproducible when Owl is launched without a shell. !/
-    set result = use! util::owl_home_libs() :str mut
+    /! Declared dependency paths come FIRST and the ambient home library
+       directory last. Avenys resolves a package by name across the --lib-dir
+       list in order, so a project that pins a dependency to a specific path
+       must win over whatever the same name happens to be in the default
+       library directory — otherwise `kioto = { path = "...kioto@2.5.0" }`
+       silently links the `kioto` that happens to sit in `~/.owl/libs`. !/
+    set declared = "" :str mut
     set names = use! deps::get_dep_names()
     set pos = 0 :i64 mut
     set total = len(names)
@@ -162,12 +168,25 @@ pub fn compiler_lib_dirs: () :str {
                    the package root itself. !/
                 set parent = fs::path::dir(path) mut
                 if parent == "" { set parent = "." }
-                set result = result + ":" + parent
+                /! A dependency that already lives in the ambient home library
+                   must not promote that directory ahead of the other declared
+                   paths: `mire` sits in `~/.owl/libs`, so listing its parent
+                   first would hand the compiler a `kioto` from that directory
+                   and quietly ignore the path the manifest actually pins. The
+                   ambient directory is appended last, once. !/
+                if parent != use! util::owl_home_libs() {
+                    if declared == "" {
+                        set declared = parent
+                    } else {
+                        set declared = declared + ":" + parent
+                    }
+                }
             }
         }
         if nl < 0 { set pos = total } else { set pos = pos + nl + 1 }
     }
-    return result
+    if declared == "" { return use! util::owl_home_libs() }
+    return declared + ":" + use! util::owl_home_libs()
 }
 
 pub fn count_deps: () :i64 {
